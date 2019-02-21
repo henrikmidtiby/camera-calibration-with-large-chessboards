@@ -68,7 +68,7 @@ def attempt_two(centers, img, neighbours, selected_center):
     calibration_points[1][0] = closest_neighbour
     calibration_points[0][1] = direction_b_neighbour
 
-    distance_threshold = 15
+    distance_threshold = 0.06
     print(calibration_points)
 
     for k in range(30):
@@ -105,7 +105,8 @@ def rule_three(calibration_points, centers, distance_threshold, x_index, y_index
         location, distance = locate_nearest_neighbour(centers,
                                                       predicted_location,
                                                       minimum_distance_from_selected_center=-1)
-        if distance < distance_threshold:
+        reference_distance = np.linalg.norm(position_three - position_one)
+        if distance / reference_distance < distance_threshold:
             calibration_points[x_index][y_index + 1] = location
             print('Added point using rule 3')
     except:
@@ -123,7 +124,8 @@ def rule_two(calibration_points, centers, distance_threshold, x_index, y_index):
         location, distance = locate_nearest_neighbour(centers,
                                                       predicted_location,
                                                       minimum_distance_from_selected_center=-1)
-        if distance < distance_threshold:
+        reference_distance = np.linalg.norm(position_two - position_one)
+        if distance / reference_distance < distance_threshold:
             calibration_points[x_index + 1][y_index] = location
             print('Added point using rule 2 (%d, %d) + (%d %d) = (%d %d)' %
                   (x_index - 1, y_index, x_index, y_index, x_index + 1, y_index))
@@ -143,7 +145,8 @@ def rule_one(calibration_points, centers, distance_threshold, x_index, y_index):
         location, distance = locate_nearest_neighbour(centers,
                                                       predicted_location,
                                                       minimum_distance_from_selected_center=-1)
-        if distance < distance_threshold:
+        reference_distance = np.linalg.norm(position_two - position_one)
+        if distance / reference_distance < distance_threshold:
             calibration_points[x_index][y_index + 1] = location
             print('Added point using rule 1')
     except:
@@ -162,7 +165,8 @@ def rule_four(calibration_points, centers, distance_threshold, x_index, y_index)
         location, distance = locate_nearest_neighbour(centers,
                                                       predicted_location,
                                                       minimum_distance_from_selected_center=-1)
-        if distance < distance_threshold:
+        reference_distance = np.linalg.norm(position_two - position_one)
+        if distance / reference_distance < distance_threshold:
             calibration_points[x_index][y_index - 1] = location
             print('Added point using rule 4')
     except:
@@ -180,7 +184,8 @@ def rule_five(calibration_points, centers, distance_threshold, x_index, y_index)
         location, distance = locate_nearest_neighbour(centers,
                                                       predicted_location,
                                                       minimum_distance_from_selected_center=-1)
-        if distance < distance_threshold:
+        reference_distance = np.linalg.norm(position_two - position_one)
+        if distance / reference_distance < distance_threshold:
             calibration_points[x_index - 1][y_index] = location
             print('Added point using rule 5 (%d, %d) + (%d %d) = (%d %d)' %
                   (x_index + 1, y_index, x_index, y_index, x_index - 1, y_index))
