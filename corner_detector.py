@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import MarkerLocator.MarkerTracker as MarkerTracker
 import math
 import skimage
@@ -30,6 +31,24 @@ def main():
     _, relative_responses_thresholded = cv2.threshold(response_relative_to_neighbourhood, 0.5, 255, cv2.THRESH_BINARY)
     cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
 
+    print(relative_responses_thresholded.dtype)
+
+    im2, contours, hireachy = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    centers = map(get_center_of_mass, contours)
+    # Select a central center of mass
+
+    central_centers = np.array(filter(lambda c: abs(c[0] - 3000) < 300 and abs(c[1] - 3000) < 300, centers))
+    selected_center = central_centers[0]
+    print(selected_center)
+
+    # Locate nearby centers
+    neighbours = filter(lambda c: abs(selected_center[0] - c[0]) + abs(selected_center[1] - c[1]) < 300,
+                        centers)
+    print(neighbours)
+
+    print(map(distance_to_ref(selected_center), neighbours))
+
     # Using the skimage.feature.peak_local_max method.
     local_maxima = skimage.feature.peak_local_max(response,
                                                   min_distance=80,
@@ -39,6 +58,17 @@ def main():
         position = (local_maximum[1], local_maximum[0])
         canvas = cv2.circle(canvas, position, 20, (0, 0, 255), -1)
     cv2.imwrite("output/30_local_maxima.png", canvas)
+
+
+def distance_to_ref(ref_point):
+    return lambda c: ((c[0] - ref_point[0])**2 + (c[1] - ref_point[1])**2)**0.5
+
+
+def get_center_of_mass(contour):
+    m = cv2.moments(contour)
+    cx = m["m10"] / m["m00"]
+    cy = m["m01"] / m["m00"]
+    return np.array([cx, cy])
 
 
 def peaks_relative_to_neighbourhood(response, neighbourhoodsize, value_to_add):
