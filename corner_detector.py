@@ -2,8 +2,13 @@ import cv2
 import numpy as np
 import MarkerLocator.MarkerTracker as MarkerTracker
 import math
-import skimage
 import time
+import collections
+
+CalibrationPoint = collections.namedtuple('CalibrationPoint',
+                                          ['position', 'coordinate', 'direction_a', 'direction_b'])
+Point = collections.namedtuple('Point',
+                               ['x', 'y'])
 
 
 def main():
@@ -33,35 +38,225 @@ def main():
 
     print(relative_responses_thresholded.dtype)
 
-    im2, contours, hireachy = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours, _ = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     centers = map(get_center_of_mass, contours)
     # Select a central center of mass
 
-    central_centers = np.array(filter(lambda c: abs(c[0] - 3000) < 300 and abs(c[1] - 3000) < 300, centers))
+    central_centers = np.array(filter(lambda c: abs(c[0] - 2700) < 300 and abs(c[1] - 1800) < 300, centers))
     selected_center = central_centers[0]
-    print(selected_center)
 
     # Locate nearby centers
     neighbours = filter(lambda c: abs(selected_center[0] - c[0]) + abs(selected_center[1] - c[1]) < 300,
                         centers)
-    print(neighbours)
 
-    print(map(distance_to_ref(selected_center), neighbours))
+    # attempt_one(centers, img, neighbours, selected_center)
+    attempt_two(centers, img, neighbours, selected_center)
 
-    # Using the skimage.feature.peak_local_max method.
-    local_maxima = skimage.feature.peak_local_max(response,
-                                                  min_distance=80,
-                                                  threshold_rel=0.2)
+
+def attempt_two(centers, img, neighbours, selected_center):
+    closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
+    direction = selected_center - closest_neighbour
+    rotation_matrix = np.array([[0, 1], [-1, 0]])
+    hat_vector = np.matmul(direction, rotation_matrix)
+    direction_b_neighbour, _ = locate_nearest_neighbour(neighbours,
+                                                        selected_center + hat_vector,
+                                                        minimum_distance_from_selected_center=-1)
+
+    calibration_points = collections.defaultdict(dict)
+    calibration_points[0][0] = selected_center
+    calibration_points[1][0] = closest_neighbour
+    calibration_points[0][1] = direction_b_neighbour
+
+    distance_threshold = 15
+    print(calibration_points)
+
+    for k in range(30):
+        for x_index in calibration_points.keys():
+            for y_index in calibration_points[x_index].keys():
+                rule_one(calibration_points, centers, distance_threshold, x_index, y_index)
+                rule_two(calibration_points, centers, distance_threshold, x_index, y_index)
+                rule_three(calibration_points, centers, distance_threshold, x_index, y_index)
+                rule_four(calibration_points, centers, distance_threshold, x_index, y_index)
+                rule_five(calibration_points, centers, distance_threshold, x_index, y_index)
+
+
     canvas = img.copy()
-    for local_maximum in local_maxima:
-        position = (local_maximum[1], local_maximum[0])
-        canvas = cv2.circle(canvas, position, 20, (0, 0, 255), -1)
+    for temp in calibration_points.values():
+        for cal_point in temp.values():
+            cv2.circle(canvas,
+                       tuple(cal_point.astype(int)),
+                       40,
+                       (0, 0, 255),
+                       10)
     cv2.imwrite("output/30_local_maxima.png", canvas)
 
 
+def rule_three(calibration_points, centers, distance_threshold, x_index, y_index):
+    try:
+        # Ensure that we don't overwrite already located
+        # points.
+        if y_index + 1 in calibration_points[x_index]:
+            return
+        position_one = calibration_points[x_index - 1][y_index]
+        position_two = calibration_points[x_index - 1][y_index + 1]
+        position_three = calibration_points[x_index][y_index]
+        predicted_location = position_two + position_three - position_one
+        location, distance = locate_nearest_neighbour(centers,
+                                                      predicted_location,
+                                                      minimum_distance_from_selected_center=-1)
+        if distance < distance_threshold:
+            calibration_points[x_index][y_index + 1] = location
+            print('Added point using rule 3')
+    except:
+        pass
+
+
+def rule_two(calibration_points, centers, distance_threshold, x_index, y_index):
+    try:
+        if y_index in calibration_points[x_index + 1]:
+            return
+
+        position_one = calibration_points[x_index - 1][y_index]
+        position_two = calibration_points[x_index][y_index]
+        predicted_location = 2 * position_two - position_one
+        location, distance = locate_nearest_neighbour(centers,
+                                                      predicted_location,
+                                                      minimum_distance_from_selected_center=-1)
+        if distance < distance_threshold:
+            calibration_points[x_index + 1][y_index] = location
+            print('Added point using rule 2 (%d, %d) + (%d %d) = (%d %d)' %
+                  (x_index - 1, y_index, x_index, y_index, x_index + 1, y_index))
+    except:
+        pass
+
+
+def rule_one(calibration_points, centers, distance_threshold, x_index, y_index):
+    try:
+        # Ensure that we don't overwrite already located
+        # points.
+        if y_index + 1 in calibration_points[x_index]:
+            return
+        position_one = calibration_points[x_index][y_index]
+        position_two = calibration_points[x_index][y_index - 1]
+        predicted_location = 2 * position_one - position_two
+        location, distance = locate_nearest_neighbour(centers,
+                                                      predicted_location,
+                                                      minimum_distance_from_selected_center=-1)
+        if distance < distance_threshold:
+            calibration_points[x_index][y_index + 1] = location
+            print('Added point using rule 1')
+    except:
+        pass
+
+
+def rule_four(calibration_points, centers, distance_threshold, x_index, y_index):
+    try:
+        # Ensure that we don't overwrite already located
+        # points.
+        if y_index - 1 in calibration_points[x_index]:
+            return
+        position_one = calibration_points[x_index][y_index]
+        position_two = calibration_points[x_index][y_index + 1]
+        predicted_location = 2 * position_one - position_two
+        location, distance = locate_nearest_neighbour(centers,
+                                                      predicted_location,
+                                                      minimum_distance_from_selected_center=-1)
+        if distance < distance_threshold:
+            calibration_points[x_index][y_index - 1] = location
+            print('Added point using rule 4')
+    except:
+        pass
+
+
+def rule_five(calibration_points, centers, distance_threshold, x_index, y_index):
+    try:
+        if y_index in calibration_points[x_index - 1]:
+            return
+
+        position_one = calibration_points[x_index + 1][y_index]
+        position_two = calibration_points[x_index][y_index]
+        predicted_location = 2 * position_two - position_one
+        location, distance = locate_nearest_neighbour(centers,
+                                                      predicted_location,
+                                                      minimum_distance_from_selected_center=-1)
+        if distance < distance_threshold:
+            calibration_points[x_index - 1][y_index] = location
+            print('Added point using rule 5 (%d, %d) + (%d %d) = (%d %d)' %
+                  (x_index + 1, y_index, x_index, y_index, x_index - 1, y_index))
+    except:
+        pass
+
+
+
+def attempt_one(centers, img, neighbours, selected_center):
+    closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
+    direction = selected_center - closest_neighbour
+    rotation_matrix = np.array([[0, 1], [-1, 0]])
+    hat_vector = np.matmul(direction, rotation_matrix)
+    direction_b_neighbour, _ = locate_nearest_neighbour(neighbours,
+                                                        selected_center + hat_vector,
+                                                        minimum_distance_from_selected_center=-1)
+    center_point = CalibrationPoint(selected_center,
+                                    [0, 0],
+                                    direction,
+                                    direction_b_neighbour - selected_center)
+    print(center_point)
+    calibration_points = []
+    current_point = center_point
+    for k in range(10):
+        probe_location = current_point.position + current_point.direction_a
+        neighbour_location, _ = locate_nearest_neighbour(centers,
+                                                         probe_location,
+                                                         -1)
+        new_direction_a = neighbour_location - current_point.position
+        cal_point = CalibrationPoint(neighbour_location,
+                                     current_point.coordinate + np.array([1, 0]),
+                                     new_direction_a,
+                                     current_point.direction_b)
+        current_point = cal_point
+        calibration_points.append(cal_point)
+    canvas = img.copy()
+    for cal_point in calibration_points:
+        print(cal_point)
+        draw_calibration_point(canvas, cal_point)
+    cv2.imwrite("output/30_local_maxima.png", canvas)
+
+
+def draw_calibration_point(canvas, center_point):
+    cv2.circle(img=canvas,
+               center=tuple(center_point.position.astype(int)),
+               radius=20,
+               color=(255, 255, 0),
+               thickness=5)
+    cv2.circle(img=canvas,
+               center=tuple((center_point.position + center_point.direction_a).astype(int)),
+               radius=20,
+               color=(255, 0, 255),
+               thickness=5)
+    cv2.circle(img=canvas,
+               center=tuple((center_point.position + center_point.direction_b).astype(int)),
+               radius=20,
+               color=(255, 0, 255),
+               thickness=5)
+
+
+def locate_nearest_neighbour(neighbours,
+                             selected_center,
+                             minimum_distance_from_selected_center=0):
+    min_distance = np.inf
+    closest_neighbour = None
+    for neighbour in neighbours:
+        distance = distance_to_ref(selected_center)(neighbour)
+        if distance < min_distance:
+            if distance > minimum_distance_from_selected_center:
+                min_distance = distance
+                closest_neighbour = neighbour
+    return closest_neighbour, min_distance
+
+
 def distance_to_ref(ref_point):
-    return lambda c: ((c[0] - ref_point[0])**2 + (c[1] - ref_point[1])**2)**0.5
+    return lambda c: ((c[0] - ref_point[0]) ** 2 + (c[1] - ref_point[1]) ** 2) ** 0.5
 
 
 def get_center_of_mass(contour):
@@ -72,14 +267,14 @@ def get_center_of_mass(contour):
 
 
 def peaks_relative_to_neighbourhood(response, neighbourhoodsize, value_to_add):
-    local_min_image = minimum_image_value_in_neightbourhood(response, neighbourhoodsize)
-    local_max_image = maximum_image_value_in_neightbourhood(response, neighbourhoodsize)
+    local_min_image = minimum_image_value_in_neighbourhood(response, neighbourhoodsize)
+    local_max_image = maximum_image_value_in_neighbourhood(response, neighbourhoodsize)
     response_relative_to_neighbourhood = (response - local_min_image) / (
-                value_to_add + local_max_image - local_min_image)
+            value_to_add + local_max_image - local_min_image)
     return response_relative_to_neighbourhood
 
 
-def minimum_image_value_in_neightbourhood(response, neighbourhood_size):
+def minimum_image_value_in_neighbourhood(response, neighbourhood_size):
     """
     A fast method for determining the local minimum value in
     a neighbourhood for an entire image.
@@ -93,7 +288,7 @@ def minimum_image_value_in_neightbourhood(response, neighbourhood_size):
     return local_min_image_temp
 
 
-def maximum_image_value_in_neightbourhood(response, neighbourhood_size):
+def maximum_image_value_in_neighbourhood(response, neighbourhood_size):
     """
     A fast method for determining the local maximum value in
     a neighbourhood for an entire image.
