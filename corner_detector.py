@@ -40,23 +40,26 @@ def main():
 
     print(relative_responses_thresholded.dtype)
 
-    _, contours, _ = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    centers = map(get_center_of_mass, contours)
+    print("contours: ", len(contours))
+    centers = list(map(get_center_of_mass, contours))
+    print("centers:", len(centers))
     # Select a central center of mass
     # TODO: Make this adaptive, so it is not tied to the location 
     # of the chessboard and size of the image.
 
     print(img.shape)
-    central_centers_temp = np.array(filter(lambda c: abs(c[0] - img.shape[0] / 2)< 300, centers))
+    central_centers_temp = np.array(list(filter(lambda c: abs(c[0] - img.shape[0] / 2)< 300, centers)))
     print(central_centers_temp)
-    central_centers = np.array(filter(lambda c: (c[1] - img.shape[1] / 2) < 300, central_centers_temp))
+    print("central_centers_temp:", len(central_centers_temp))
+    central_centers = np.array(list(filter(lambda c: (c[1] - img.shape[1] / 2) < 300, central_centers_temp)))
     print(central_centers)
     selected_center = central_centers[0]
 
     # Locate nearby centers
-    neighbours = filter(lambda c: abs(selected_center[0] - c[0]) + abs(selected_center[1] - c[1]) < 300,
-                        centers)
+    neighbours = list(filter(lambda c: abs(selected_center[0] - c[0]) + abs(selected_center[1] - c[1]) < 300,
+                        centers))
 
     # attempt_one(centers, img, neighbours, selected_center)
     attempt_two(centers, img, neighbours, selected_center)
@@ -80,8 +83,8 @@ def attempt_two(centers, img, neighbours, selected_center):
     print(calibration_points)
 
     for k in range(40):
-        for x_index in calibration_points.keys():
-            for y_index in calibration_points[x_index].keys():
+        for x_index in list(calibration_points.keys()):
+            for y_index in list(calibration_points[x_index].keys()):
                 rule_one(calibration_points, centers, distance_threshold, x_index, y_index)
                 rule_two(calibration_points, centers, distance_threshold, x_index, y_index)
                 rule_three(calibration_points, centers, distance_threshold, x_index, y_index)
