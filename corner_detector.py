@@ -58,6 +58,7 @@ def main():
 
     # attempt_one(centers, img, neighbours, selected_center)
     attempt_two(centers, img, neighbours, selected_center)
+    print("%8.2f, grid mapping" % (time.time() - t_start))
 
 
 def attempt_two(centers, img, neighbours, selected_center):
