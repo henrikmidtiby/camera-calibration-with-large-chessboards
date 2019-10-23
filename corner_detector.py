@@ -204,59 +204,6 @@ def rule_five(calibration_points, centers, distance_threshold, x_index, y_index)
         pass
 
 
-
-def attempt_one(centers, img, neighbours, selected_center):
-    closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
-    direction = selected_center - closest_neighbour
-    rotation_matrix = np.array([[0, 1], [-1, 0]])
-    hat_vector = np.matmul(direction, rotation_matrix)
-    direction_b_neighbour, _ = locate_nearest_neighbour(neighbours,
-                                                        selected_center + hat_vector,
-                                                        minimum_distance_from_selected_center=-1)
-    center_point = CalibrationPoint(selected_center,
-                                    [0, 0],
-                                    direction,
-                                    direction_b_neighbour - selected_center)
-    print(center_point)
-    calibration_points = []
-    current_point = center_point
-    for k in range(30):
-        probe_location = current_point.position + current_point.direction_a
-        neighbour_location, _ = locate_nearest_neighbour(centers,
-                                                         probe_location,
-                                                         -1)
-        new_direction_a = neighbour_location - current_point.position
-        cal_point = CalibrationPoint(neighbour_location,
-                                     current_point.coordinate + np.array([1, 0]),
-                                     new_direction_a,
-                                     current_point.direction_b)
-        current_point = cal_point
-        calibration_points.append(cal_point)
-    canvas = img.copy()
-    for cal_point in calibration_points:
-        print(cal_point)
-        draw_calibration_point(canvas, cal_point)
-    cv2.imwrite("output/30_local_maxima.png", canvas)
-
-
-def draw_calibration_point(canvas, center_point):
-    cv2.circle(img=canvas,
-               center=tuple(center_point.position.astype(int)),
-               radius=20,
-               color=(255, 255, 0),
-               thickness=1)
-    cv2.circle(img=canvas,
-               center=tuple((center_point.position + center_point.direction_a).astype(int)),
-               radius=20,
-               color=(255, 0, 255),
-               thickness=1)
-    cv2.circle(img=canvas,
-               center=tuple((center_point.position + center_point.direction_b).astype(int)),
-               radius=20,
-               color=(255, 0, 255),
-               thickness=1)
-
-
 def locate_nearest_neighbour(neighbours,
                              selected_center,
                              minimum_distance_from_selected_center=0):
