@@ -76,17 +76,34 @@ def attempt_two(centers, img, neighbours, selected_center):
     calibration_points[0][1] = direction_b_neighbour
 
     distance_threshold = 0.06
-    print(calibration_points)
+    # print(calibration_points)
+    points_to_examine_queue = list()
 
-    for k in range(40):
+    for k in range(2):
         for x_index in list(calibration_points.keys()):
             for y_index in list(calibration_points[x_index].keys()):
-                rule_one(calibration_points, centers, distance_threshold, x_index, y_index)
-                rule_two(calibration_points, centers, distance_threshold, x_index, y_index)
-                rule_three(calibration_points, centers, distance_threshold, x_index, y_index)
-                rule_four(calibration_points, centers, distance_threshold, x_index, y_index)
-                rule_five(calibration_points, centers, distance_threshold, x_index, y_index)
+                rule_one(calibration_points, centers, distance_threshold,
+                        x_index, y_index, points_to_examine_queue)
+                rule_two(calibration_points, centers, distance_threshold,
+                        x_index, y_index, points_to_examine_queue)
+                rule_three(calibration_points, centers, distance_threshold,
+                        x_index, y_index, points_to_examine_queue)
+                rule_four(calibration_points, centers, distance_threshold,
+                        x_index, y_index, points_to_examine_queue)
+                rule_five(calibration_points, centers, distance_threshold,
+                        x_index, y_index, points_to_examine_queue)
 
+    for x_index, y_index in points_to_examine_queue:
+        rule_one(calibration_points, centers, distance_threshold,
+                x_index, y_index, points_to_examine_queue)
+        rule_two(calibration_points, centers, distance_threshold,
+                x_index, y_index, points_to_examine_queue)
+        rule_three(calibration_points, centers, distance_threshold,
+                x_index, y_index, points_to_examine_queue)
+        rule_four(calibration_points, centers, distance_threshold,
+                x_index, y_index, points_to_examine_queue)
+        rule_five(calibration_points, centers, distance_threshold,
+                x_index, y_index, points_to_examine_queue)
 
     canvas = img.copy()
     for temp in calibration_points.values():
@@ -99,7 +116,8 @@ def attempt_two(centers, img, neighbours, selected_center):
     cv2.imwrite("output/30_local_maxima.png", canvas)
 
 
-def rule_three(calibration_points, centers, distance_threshold, x_index, y_index):
+def rule_three(calibration_points, centers, distance_threshold, x_index,
+        y_index, points_to_examine_queue):
     try:
         # Ensure that we don't overwrite already located
         # points.
@@ -116,11 +134,13 @@ def rule_three(calibration_points, centers, distance_threshold, x_index, y_index
         if distance / reference_distance < distance_threshold:
             calibration_points[x_index][y_index + 1] = location
             print('Added point using rule 3')
+            points_to_examine_queue.append((x_index, y_index + 1))
     except:
         pass
 
 
-def rule_two(calibration_points, centers, distance_threshold, x_index, y_index):
+def rule_two(calibration_points, centers, distance_threshold, x_index, y_index,
+        points_to_examine_queue):
     try:
         if y_index in calibration_points[x_index + 1]:
             return
@@ -136,11 +156,13 @@ def rule_two(calibration_points, centers, distance_threshold, x_index, y_index):
             calibration_points[x_index + 1][y_index] = location
             print('Added point using rule 2 (%d, %d) + (%d %d) = (%d %d)' %
                   (x_index - 1, y_index, x_index, y_index, x_index + 1, y_index))
+            points_to_examine_queue.append((x_index + 1, y_index))
     except:
         pass
 
 
-def rule_one(calibration_points, centers, distance_threshold, x_index, y_index):
+def rule_one(calibration_points, centers, distance_threshold, x_index, y_index,
+        points_to_examine_queue):
     try:
         # Ensure that we don't overwrite already located
         # points.
@@ -156,11 +178,13 @@ def rule_one(calibration_points, centers, distance_threshold, x_index, y_index):
         if distance / reference_distance < distance_threshold:
             calibration_points[x_index][y_index + 1] = location
             print('Added point using rule 1')
+            points_to_examine_queue.append((x_index, y_index + 1))
     except:
         pass
 
 
-def rule_four(calibration_points, centers, distance_threshold, x_index, y_index):
+def rule_four(calibration_points, centers, distance_threshold, x_index,
+        y_index, points_to_examine_queue):
     try:
         # Ensure that we don't overwrite already located
         # points.
@@ -176,11 +200,13 @@ def rule_four(calibration_points, centers, distance_threshold, x_index, y_index)
         if distance / reference_distance < distance_threshold:
             calibration_points[x_index][y_index - 1] = location
             print('Added point using rule 4')
+            points_to_examine_queue.append((x_index, y_index - 1))
     except:
         pass
 
 
-def rule_five(calibration_points, centers, distance_threshold, x_index, y_index):
+def rule_five(calibration_points, centers, distance_threshold, x_index,
+        y_index, points_to_examine_queue):
     try:
         if y_index in calibration_points[x_index - 1]:
             return
@@ -196,6 +222,7 @@ def rule_five(calibration_points, centers, distance_threshold, x_index, y_index)
             calibration_points[x_index - 1][y_index] = location
             print('Added point using rule 5 (%d, %d) + (%d %d) = (%d %d)' %
                   (x_index + 1, y_index, x_index, y_index, x_index - 1, y_index))
+            points_to_examine_queue.append((x_index - 1, y_index))
     except:
         pass
 
