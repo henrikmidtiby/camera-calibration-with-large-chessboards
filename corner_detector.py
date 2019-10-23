@@ -5,11 +5,6 @@ import math
 import time
 import collections
 
-CalibrationPoint = collections.namedtuple('CalibrationPoint',
-                                          ['position', 'coordinate', 'direction_a', 'direction_b'])
-Point = collections.namedtuple('Point',
-                               ['x', 'y'])
-
 
 def main():
     t_start = time.time()
