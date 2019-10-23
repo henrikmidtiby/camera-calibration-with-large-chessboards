@@ -8,9 +8,12 @@ import collections
 
 def main():
     t_start = time.time()
-    # img = cv2.imread('input/4122AC35FBF7C6F7B71089A50CDC1814.jpg')
-    img = cv2.imread('input/GOPR0011red.JPG')
+    
+    # Load image
+    img = cv2.imread('input/GOPR0003red.JPG')
     assert img is not None, "Failed to load image"
+
+    # Calculate corner strengths
     locator = MarkerTracker.MarkerTracker(order=2,
                                           kernel_size=45,
                                           scale_factor=40)
@@ -19,27 +22,26 @@ def main():
     print("%8.2f, conversion to grayscale" % (time.time() - t_start))
     response = locator.apply_convolution_with_complex_kernel(greyscale_image)
     print("%8.2f, convolution" % (time.time() - t_start))
-    response_normalised = cv2.normalize(response, None, 0, 255, cv2.NORM_MINMAX)
-
     cv2.imwrite('output/00_response.png', response)
+
+    # Normalize responses
+    response_normalised = cv2.normalize(response, None, 0, 255, cv2.NORM_MINMAX)
     cv2.imwrite('output/05_response_normalized.png', response_normalised)
 
+    # Localized normalization of responses
     _, max_val, _, _ = cv2.minMaxLoc(response)
-
     response_relative_to_neighbourhood = peaks_relative_to_neighbourhood(response, 511, 0.05 * max_val)
     print("%8.2f, relative response" % (time.time() - t_start))
     cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
 
+    # Threshold responses
     _, relative_responses_thresholded = cv2.threshold(response_relative_to_neighbourhood, 0.5, 255, cv2.THRESH_BINARY)
     cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
 
-    print(relative_responses_thresholded.dtype)
-
+    # Locate contours around peaks
     contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    print("contours: ", len(contours))
     centers = list(map(get_center_of_mass, contours))
-    print("centers:", len(centers))
     # Select a central center of mass
     # TODO: Make this adaptive, so it is not tied to the location 
     # of the chessboard and size of the image.
@@ -110,7 +112,7 @@ def attempt_two(centers, img, neighbours, selected_center):
         for cal_point in temp.values():
             cv2.circle(canvas,
                        tuple(cal_point.astype(int)),
-                       40,
+                       20,
                        (0, 0, 255),
                        2)
     cv2.imwrite("output/30_local_maxima.png", canvas)
