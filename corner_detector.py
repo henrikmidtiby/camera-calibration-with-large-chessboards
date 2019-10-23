@@ -13,57 +13,78 @@ def main():
     img = cv2.imread('input/GOPR0003red.JPG')
     assert img is not None, "Failed to load image"
 
-    # Calculate corner strengths
+    # Calculate corner responses
+    response = calculate_corner_responses(img)
+    print("%8.2f, convolution" % (time.time() - t_start))
+    cv2.imwrite('output/00_response.png', response)
+
+    # Localized normalization of responses
+    response_relative_to_neighbourhood = local_normalization(response, 511)
+    print("%8.2f, relative response" % (time.time() - t_start))
+    cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
+
+    # Threshold responses
+    relative_responses_thresholded = threshold_responses(response_relative_to_neighbourhood)
+    cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
+
+    # Locate centers of peaks
+    centers = locate_centers_of_peaks(relative_responses_thresholded)
+
+    # Select central center of mass
+    selected_center = select_central_peak_location(centers)
+
+    # Locate nearby centers
+    neighbours = locate_nearby_centers(selected_center, centers)
+
+    # Enumerate detected peaks
+    enumerate_peaks(centers, img, neighbours, selected_center)
+    print("%8.2f, grid mapping" % (time.time() - t_start))
+
+
+def calculate_corner_responses(img):
     locator = MarkerTracker.MarkerTracker(order=2,
                                           kernel_size=45,
                                           scale_factor=40)
 
     greyscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    print("%8.2f, conversion to grayscale" % (time.time() - t_start))
     response = locator.apply_convolution_with_complex_kernel(greyscale_image)
-    print("%8.2f, convolution" % (time.time() - t_start))
-    cv2.imwrite('output/00_response.png', response)
+    return response
 
-    # Normalize responses
-    response_normalised = cv2.normalize(response, None, 0, 255, cv2.NORM_MINMAX)
-    cv2.imwrite('output/05_response_normalized.png', response_normalised)
 
-    # Localized normalization of responses
+def local_normalization(response, neighbourhoodsize):
     _, max_val, _, _ = cv2.minMaxLoc(response)
-    response_relative_to_neighbourhood = peaks_relative_to_neighbourhood(response, 511, 0.05 * max_val)
-    print("%8.2f, relative response" % (time.time() - t_start))
-    cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
+    response_relative_to_neighbourhood = peaks_relative_to_neighbourhood(response, neighbourhoodsize, 0.05 * max_val)
+    return response_relative_to_neighbourhood
 
-    # Threshold responses
+
+def threshold_responses(response_relative_to_neighbourhood):
     _, relative_responses_thresholded = cv2.threshold(response_relative_to_neighbourhood, 0.5, 255, cv2.THRESH_BINARY)
-    cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
+    return relative_responses_thresholded
 
-    # Locate contours around peaks
+
+def locate_centers_of_peaks(relative_responses_thresholded):
     contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
     centers = list(map(get_center_of_mass, contours))
-    # Select a central center of mass
-    # TODO: Make this adaptive, so it is not tied to the location 
-    # of the chessboard and size of the image.
-
-    print(img.shape)
-    central_centers_temp = np.array(list(filter(lambda c: abs(c[0] - img.shape[0] / 2)< 300, centers)))
-    print(central_centers_temp)
-    print("central_centers_temp:", len(central_centers_temp))
-    central_centers = np.array(list(filter(lambda c: (c[1] - img.shape[1] / 2) < 300, central_centers_temp)))
-    print(central_centers)
-    selected_center = central_centers[0]
-
-    # Locate nearby centers
-    neighbours = list(filter(lambda c: abs(selected_center[0] - c[0]) + abs(selected_center[1] - c[1]) < 300,
-                        centers))
-
-    # attempt_one(centers, img, neighbours, selected_center)
-    attempt_two(centers, img, neighbours, selected_center)
-    print("%8.2f, grid mapping" % (time.time() - t_start))
+    return centers
 
 
-def attempt_two(centers, img, neighbours, selected_center):
+def select_central_peak_location(centers):
+    mean_position_of_centers = np.mean(centers, axis=0)
+    central_centers_temp = np.array(list(filter(lambda c: abs(c[0] -
+        mean_position_of_centers[0]) < 300, centers)))
+    central_centers = np.array(list(filter(lambda c: (c[1] -
+        mean_position_of_centers[1]) < 300, central_centers_temp)))
+    return central_centers[0]
+
+
+def locate_nearby_centers(selected_center, centers):
+    maximum_distance_to_neighbours = 300
+    neighbours = list(filter(lambda c: abs(selected_center[0] - c[0]) +
+        abs(selected_center[1] - c[1]) < maximum_distance_to_neighbours, centers))
+    return neighbours
+
+
+def enumerate_peaks(centers, img, neighbours, selected_center):
     closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
     direction = selected_center - closest_neighbour
     rotation_matrix = np.array([[0, 1], [-1, 0]])
