@@ -9,7 +9,7 @@ import collections
 def main():
     t_start = time.time()
     # img = cv2.imread('input/4122AC35FBF7C6F7B71089A50CDC1814.jpg')
-    img = cv2.imread('input/GOPR0011.JPG')
+    img = cv2.imread('input/GOPR0011red.JPG')
     assert img is not None, "Failed to load image"
     locator = MarkerTracker.MarkerTracker(order=2,
                                           kernel_size=45,
