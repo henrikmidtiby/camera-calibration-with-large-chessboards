@@ -6,39 +6,44 @@ import time
 import collections
 
 
-def main():
-    t_start = time.time()
-    
-    # Load image
-    img = cv2.imread('input/GOPR0003red.JPG')
-    assert img is not None, "Failed to load image"
+class CornerDetector():
+    def __init__(self, path_to_image):
+        t_start = time.time()
 
-    # Calculate corner responses
-    response = calculate_corner_responses(img)
-    print("%8.2f, convolution" % (time.time() - t_start))
-    cv2.imwrite('output/00_response.png', response)
+        # Load image
+        self.img = cv2.imread(path_to_image)
+        assert self.img is not None, "Failed to load image"
 
-    # Localized normalization of responses
-    response_relative_to_neighbourhood = local_normalization(response, 511)
-    print("%8.2f, relative response" % (time.time() - t_start))
-    cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
+        # Calculate corner responses
+        response = calculate_corner_responses(self.img)
+        print("%8.2f, convolution" % (time.time() - t_start))
+        cv2.imwrite('output/00_response.png', response)
 
-    # Threshold responses
-    relative_responses_thresholded = threshold_responses(response_relative_to_neighbourhood)
-    cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
+        # Localized normalization of responses
+        response_relative_to_neighbourhood = local_normalization(response, 511)
+        print("%8.2f, relative response" % (time.time() - t_start))
+        cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
 
-    # Locate centers of peaks
-    centers = locate_centers_of_peaks(relative_responses_thresholded)
+        # Threshold responses
+        relative_responses_thresholded = threshold_responses(response_relative_to_neighbourhood)
+        cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
 
-    # Select central center of mass
-    selected_center = select_central_peak_location(centers)
+        # Locate centers of peaks
+        centers = locate_centers_of_peaks(relative_responses_thresholded)
 
-    # Locate nearby centers
-    neighbours = locate_nearby_centers(selected_center, centers)
+        # Select central center of mass
+        selected_center = select_central_peak_location(centers)
 
-    # Enumerate detected peaks
-    enumerate_peaks(centers, img, neighbours, selected_center)
-    print("%8.2f, grid mapping" % (time.time() - t_start))
+        # Locate nearby centers
+        neighbours = locate_nearby_centers(selected_center, centers)
+
+        # Enumerate detected peaks
+        calibration_points = enumerate_peaks(centers, self.img, neighbours, selected_center)
+        print("%8.2f, grid mapping" % (time.time() - t_start))
+
+        # Show detected calibration points
+        canvas = show_detected_calibration_points(self.img, calibration_points)
+        cv2.imwrite("output/30_local_maxima.png", canvas)
 
 
 def calculate_corner_responses(img):
@@ -85,21 +90,9 @@ def locate_nearby_centers(selected_center, centers):
 
 
 def enumerate_peaks(centers, img, neighbours, selected_center):
-    closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
-    direction = selected_center - closest_neighbour
-    rotation_matrix = np.array([[0, 1], [-1, 0]])
-    hat_vector = np.matmul(direction, rotation_matrix)
-    direction_b_neighbour, _ = locate_nearest_neighbour(neighbours,
-                                                        selected_center + hat_vector,
-                                                        minimum_distance_from_selected_center=-1)
-
-    calibration_points = collections.defaultdict(dict)
-    calibration_points[0][0] = selected_center
-    calibration_points[1][0] = closest_neighbour
-    calibration_points[0][1] = direction_b_neighbour
+    calibration_points = initialize_calibration_points(neighbours, selected_center)
 
     distance_threshold = 0.06
-    # print(calibration_points)
     points_to_examine_queue = list()
 
     for k in range(2):
@@ -127,16 +120,38 @@ def enumerate_peaks(centers, img, neighbours, selected_center):
                 x_index, y_index, points_to_examine_queue)
         rule_five(calibration_points, centers, distance_threshold,
                 x_index, y_index, points_to_examine_queue)
+        break
 
+    return calibration_points
+
+
+def show_detected_calibration_points(img, calibration_points):
     canvas = img.copy()
-    for temp in calibration_points.values():
-        for cal_point in temp.values():
+    for x_index, temp in calibration_points.items():
+        for y_index, cal_point in temp.items():
             cv2.circle(canvas,
                        tuple(cal_point.astype(int)),
                        20,
-                       (0, 0, 255),
+                       (0, 255 * (y_index % 2), 255 * (x_index % 2)),
                        2)
-    cv2.imwrite("output/30_local_maxima.png", canvas)
+    return canvas 
+
+
+def initialize_calibration_points(neighbours, selected_center):
+    closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
+    direction = selected_center - closest_neighbour
+    rotation_matrix = np.array([[0, 1], [-1, 0]])
+    hat_vector = np.matmul(direction, rotation_matrix)
+    direction_b_neighbour, _ = locate_nearest_neighbour(neighbours,
+                                                        selected_center + hat_vector,
+                                                        minimum_distance_from_selected_center=-1)
+
+    calibration_points = collections.defaultdict(dict)
+    calibration_points[0][0] = selected_center
+    calibration_points[1][0] = closest_neighbour
+    calibration_points[0][1] = direction_b_neighbour
+
+    return calibration_points
 
 
 def rule_three(calibration_points, centers, distance_threshold, x_index,
@@ -315,4 +330,4 @@ def maximum_image_value_in_neighbourhood(response, neighbourhood_size):
     return local_min_image_temp
 
 
-main()
+CornerDetector('input/GOPR0003red.JPG')
