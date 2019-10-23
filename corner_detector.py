@@ -51,6 +51,8 @@ class ChessBoardCornerDetector():
         canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
         cv2.imwrite("output/30_local_maxima.png", canvas)
 
+        return self.calibration_points
+
 
     def calculate_corner_responses(self, img):
         locator = MarkerTracker.MarkerTracker(order=2,
@@ -105,7 +107,7 @@ class ChessBoardCornerDetector():
         self.points_to_examine_queue.append((0, 1))
 
         for x_index, y_index in self.points_to_examine_queue:
-            self.apply_all_rules(centers, x_index, y_index)
+            self.apply_all_rules_to_add_calibration_points(centers, x_index, y_index)
 
         return self.calibration_points
 
@@ -139,7 +141,7 @@ class ChessBoardCornerDetector():
         return calibration_points
 
 
-    def apply_all_rules(self, centers, x_index, y_index):
+    def apply_all_rules_to_add_calibration_points(self, centers, x_index, y_index):
         self.rule_one(centers, x_index, y_index)
         self.rule_two(centers, x_index, y_index)
         self.rule_three(centers, x_index, y_index)
