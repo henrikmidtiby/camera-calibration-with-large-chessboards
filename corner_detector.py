@@ -10,6 +10,7 @@ class ChessBoardCornerDetector():
     def __init__(self):
         self.threshold_distance_for_central_location = 300
         self.maximum_distance_to_neighbours = 300
+        self.distance_threshold = 0.06
         pass
         
     def detect_chess_board_corners(self, path_to_image):
@@ -63,7 +64,7 @@ class ChessBoardCornerDetector():
 
     def local_normalization(self, response, neighbourhoodsize):
         _, max_val, _, _ = cv2.minMaxLoc(response)
-        response_relative_to_neighbourhood = peaks_relative_to_neighbourhood(response, neighbourhoodsize, 0.05 * max_val)
+        response_relative_to_neighbourhood = self.peaks_relative_to_neighbourhood(response, neighbourhoodsize, 0.05 * max_val)
         return response_relative_to_neighbourhood
 
 
@@ -74,7 +75,7 @@ class ChessBoardCornerDetector():
 
     def locate_centers_of_peaks(self, relative_responses_thresholded):
         contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        centers = list(map(get_center_of_mass, contours))
+        centers = list(map(self.get_center_of_mass, contours))
         return centers
 
 
@@ -98,35 +99,13 @@ class ChessBoardCornerDetector():
     def enumerate_peaks(self, centers, img, neighbours, selected_center):
         self.calibration_points = self.initialize_calibration_points(neighbours, selected_center)
 
-        self.distance_threshold = 0.06
-        points_to_examine_queue = list()
+        self.points_to_examine_queue = list()
+        self.points_to_examine_queue.append((0, 0))
+        self.points_to_examine_queue.append((1, 0))
+        self.points_to_examine_queue.append((0, 1))
 
-        for k in range(2):
-            for x_index in list(self.calibration_points.keys()):
-                for y_index in list(self.calibration_points[x_index].keys()):
-                    self.rule_one(centers,
-                            x_index, y_index, points_to_examine_queue)
-                    self.rule_two(centers,
-                            x_index, y_index, points_to_examine_queue)
-                    self.rule_three(centers,
-                            x_index, y_index, points_to_examine_queue)
-                    self.rule_four(centers,
-                            x_index, y_index, points_to_examine_queue)
-                    self.rule_five(centers,
-                            x_index, y_index, points_to_examine_queue)
-
-        for x_index, y_index in points_to_examine_queue:
-            self.rule_one(centers,
-                    x_index, y_index, points_to_examine_queue)
-            self.rule_two(centers,
-                    x_index, y_index, points_to_examine_queue)
-            self.rule_three(centers,
-                    x_index, y_index, points_to_examine_queue)
-            self.rule_four(centers,
-                    x_index, y_index, points_to_examine_queue)
-            self.rule_five(centers,
-                    x_index, y_index, points_to_examine_queue)
-            break
+        for x_index, y_index in self.points_to_examine_queue:
+            self.apply_all_rules(centers, x_index, y_index)
 
         return self.calibration_points
 
@@ -144,11 +123,11 @@ class ChessBoardCornerDetector():
 
 
     def initialize_calibration_points(self, neighbours, selected_center):
-        closest_neighbour, _ = locate_nearest_neighbour(neighbours, selected_center)
+        closest_neighbour, _ = self.locate_nearest_neighbour(neighbours, selected_center)
         direction = selected_center - closest_neighbour
         rotation_matrix = np.array([[0, 1], [-1, 0]])
         hat_vector = np.matmul(direction, rotation_matrix)
-        direction_b_neighbour, _ = locate_nearest_neighbour(neighbours,
+        direction_b_neighbour, _ = self.locate_nearest_neighbour(neighbours,
                                                             selected_center + hat_vector,
                                                             minimum_distance_from_selected_center=-1)
 
@@ -160,8 +139,15 @@ class ChessBoardCornerDetector():
         return calibration_points
 
 
-    def rule_three(self, centers, x_index,
-            y_index, points_to_examine_queue):
+    def apply_all_rules(self, centers, x_index, y_index):
+        self.rule_one(centers, x_index, y_index)
+        self.rule_two(centers, x_index, y_index)
+        self.rule_three(centers, x_index, y_index)
+        self.rule_four(centers, x_index, y_index)
+        self.rule_five(centers, x_index, y_index)
+
+
+    def rule_three(self, centers, x_index, y_index):
         try:
             # Ensure that we don't overwrite already located
             # points.
@@ -171,20 +157,19 @@ class ChessBoardCornerDetector():
             position_two = self.calibration_points[x_index - 1][y_index + 1]
             position_three = self.calibration_points[x_index][y_index]
             predicted_location = position_two + position_three - position_one
-            location, distance = locate_nearest_neighbour(centers,
+            location, distance = self.locate_nearest_neighbour(centers,
                                                           predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_three - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index + 1] = location
                 print('Added point using rule 3')
-                points_to_examine_queue.append((x_index, y_index + 1))
+                self.points_to_examine_queue.append((x_index, y_index + 1))
         except:
             pass
 
 
-    def rule_two(self, centers, x_index, y_index,
-            points_to_examine_queue):
+    def rule_two(self, centers, x_index, y_index):
         try:
             if y_index in self.calibration_points[x_index + 1]:
                 return
@@ -192,7 +177,7 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index - 1][y_index]
             position_two = self.calibration_points[x_index][y_index]
             predicted_location = 2 * position_two - position_one
-            location, distance = locate_nearest_neighbour(centers,
+            location, distance = self.locate_nearest_neighbour(centers,
                                                           predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
@@ -200,13 +185,12 @@ class ChessBoardCornerDetector():
                 self.calibration_points[x_index + 1][y_index] = location
                 print('Added point using rule 2 (%d, %d) + (%d %d) = (%d %d)' %
                       (x_index - 1, y_index, x_index, y_index, x_index + 1, y_index))
-                points_to_examine_queue.append((x_index + 1, y_index))
+                self.points_to_examine_queue.append((x_index + 1, y_index))
         except:
             pass
 
 
-    def rule_one(self, centers, x_index, y_index,
-            points_to_examine_queue):
+    def rule_one(self, centers, x_index, y_index):
         try:
             # Ensure that we don't overwrite already located
             # points.
@@ -215,20 +199,19 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index][y_index]
             position_two = self.calibration_points[x_index][y_index - 1]
             predicted_location = 2 * position_one - position_two
-            location, distance = locate_nearest_neighbour(centers,
+            location, distance = self.locate_nearest_neighbour(centers,
                                                           predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index + 1] = location
                 print('Added point using rule 1')
-                points_to_examine_queue.append((x_index, y_index + 1))
+                self.points_to_examine_queue.append((x_index, y_index + 1))
         except:
             pass
 
 
-    def rule_four(self, centers, x_index,
-            y_index, points_to_examine_queue):
+    def rule_four(self, centers, x_index, y_index):
         try:
             # Ensure that we don't overwrite already located
             # points.
@@ -237,20 +220,19 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index][y_index]
             position_two = self.calibration_points[x_index][y_index + 1]
             predicted_location = 2 * position_one - position_two
-            location, distance = locate_nearest_neighbour(centers,
+            location, distance = self.locate_nearest_neighbour(centers,
                                                           predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index - 1] = location
                 print('Added point using rule 4')
-                points_to_examine_queue.append((x_index, y_index - 1))
+                self.points_to_examine_queue.append((x_index, y_index - 1))
         except:
             pass
 
 
-    def rule_five(self, centers, x_index,
-            y_index, points_to_examine_queue):
+    def rule_five(self, centers, x_index, y_index):
         try:
             if y_index in self.calibration_points[x_index - 1]:
                 return
@@ -258,7 +240,7 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index + 1][y_index]
             position_two = self.calibration_points[x_index][y_index]
             predicted_location = 2 * position_two - position_one
-            location, distance = locate_nearest_neighbour(centers,
+            location, distance = self.locate_nearest_neighbour(centers,
                                                           predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
@@ -266,74 +248,75 @@ class ChessBoardCornerDetector():
                 self.calibration_points[x_index - 1][y_index] = location
                 print('Added point using rule 5 (%d, %d) + (%d %d) = (%d %d)' %
                       (x_index + 1, y_index, x_index, y_index, x_index - 1, y_index))
-                points_to_examine_queue.append((x_index - 1, y_index))
+                self.points_to_examine_queue.append((x_index - 1, y_index))
         except:
             pass
 
 
-def locate_nearest_neighbour(neighbours,
-                             selected_center,
-                             minimum_distance_from_selected_center=0):
-    min_distance = np.inf
-    closest_neighbour = None
-    for neighbour in neighbours:
-        distance = distance_to_ref(selected_center)(neighbour)
-        if distance < min_distance:
-            if distance > minimum_distance_from_selected_center:
-                min_distance = distance
-                closest_neighbour = neighbour
-    return closest_neighbour, min_distance
+    def locate_nearest_neighbour(self,
+                                 neighbours,
+                                 selected_center,
+                                 minimum_distance_from_selected_center=0):
+        min_distance = np.inf
+        closest_neighbour = None
+        for neighbour in neighbours:
+            distance = self.distance_to_ref(selected_center)(neighbour)
+            if distance < min_distance:
+                if distance > minimum_distance_from_selected_center:
+                    min_distance = distance
+                    closest_neighbour = neighbour
+        return closest_neighbour, min_distance
 
 
-def distance_to_ref(ref_point):
-    return lambda c: ((c[0] - ref_point[0]) ** 2 + (c[1] - ref_point[1]) ** 2) ** 0.5
+    def distance_to_ref(self, ref_point):
+        return lambda c: ((c[0] - ref_point[0]) ** 2 + (c[1] - ref_point[1]) ** 2) ** 0.5
 
 
-def get_center_of_mass(contour):
-    m = cv2.moments(contour)
-    if m["m00"] > 0:
-        cx = m["m10"] / m["m00"]
-        cy = m["m01"] / m["m00"]
-        result = np.array([cx, cy])
-    else:
-        result = np.array([contour[0][0][0], contour[0][0][1]])
-    return result
+    def get_center_of_mass(self, contour):
+        m = cv2.moments(contour)
+        if m["m00"] > 0:
+            cx = m["m10"] / m["m00"]
+            cy = m["m01"] / m["m00"]
+            result = np.array([cx, cy])
+        else:
+            result = np.array([contour[0][0][0], contour[0][0][1]])
+        return result
 
 
-def peaks_relative_to_neighbourhood(response, neighbourhoodsize, value_to_add):
-    local_min_image = minimum_image_value_in_neighbourhood(response, neighbourhoodsize)
-    local_max_image = maximum_image_value_in_neighbourhood(response, neighbourhoodsize)
-    response_relative_to_neighbourhood = (response - local_min_image) / (
-            value_to_add + local_max_image - local_min_image)
-    return response_relative_to_neighbourhood
+    def peaks_relative_to_neighbourhood(self, response, neighbourhoodsize, value_to_add):
+        local_min_image = self.minimum_image_value_in_neighbourhood(response, neighbourhoodsize)
+        local_max_image = self.maximum_image_value_in_neighbourhood(response, neighbourhoodsize)
+        response_relative_to_neighbourhood = (response - local_min_image) / (
+                value_to_add + local_max_image - local_min_image)
+        return response_relative_to_neighbourhood
 
 
-def minimum_image_value_in_neighbourhood(response, neighbourhood_size):
-    """
-    A fast method for determining the local minimum value in
-    a neighbourhood for an entire image.
-    """
-    kernel_1 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    orig_size = response.shape
-    for x in range(int(math.log(neighbourhood_size, 2))):
-        eroded_response = cv2.morphologyEx(response, cv2.MORPH_ERODE, kernel_1)
-        response = cv2.resize(eroded_response, None, fx=0.5, fy=0.5)
-    local_min_image_temp = cv2.resize(response, (orig_size[1], orig_size[0]))
-    return local_min_image_temp
+    def minimum_image_value_in_neighbourhood(self, response, neighbourhood_size):
+        """
+        A fast method for determining the local minimum value in
+        a neighbourhood for an entire image.
+        """
+        kernel_1 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        orig_size = response.shape
+        for x in range(int(math.log(neighbourhood_size, 2))):
+            eroded_response = cv2.morphologyEx(response, cv2.MORPH_ERODE, kernel_1)
+            response = cv2.resize(eroded_response, None, fx=0.5, fy=0.5)
+        local_min_image_temp = cv2.resize(response, (orig_size[1], orig_size[0]))
+        return local_min_image_temp
 
 
-def maximum_image_value_in_neighbourhood(response, neighbourhood_size):
-    """
-    A fast method for determining the local maximum value in
-    a neighbourhood for an entire image.
-    """
-    kernel_1 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    orig_size = response.shape
-    for x in range(int(math.log(neighbourhood_size, 2))):
-        eroded_response = cv2.morphologyEx(response, cv2.MORPH_DILATE, kernel_1)
-        response = cv2.resize(eroded_response, None, fx=0.5, fy=0.5)
-    local_min_image_temp = cv2.resize(response, (orig_size[1], orig_size[0]))
-    return local_min_image_temp
+    def maximum_image_value_in_neighbourhood(self, response, neighbourhood_size):
+        """
+        A fast method for determining the local maximum value in
+        a neighbourhood for an entire image.
+        """
+        kernel_1 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        orig_size = response.shape
+        for x in range(int(math.log(neighbourhood_size, 2))):
+            eroded_response = cv2.morphologyEx(response, cv2.MORPH_DILATE, kernel_1)
+            response = cv2.resize(eroded_response, None, fx=0.5, fy=0.5)
+        local_min_image_temp = cv2.resize(response, (orig_size[1], orig_size[0]))
+        return local_min_image_temp
 
 
 cbcd = ChessBoardCornerDetector();
