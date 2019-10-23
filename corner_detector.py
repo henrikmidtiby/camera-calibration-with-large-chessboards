@@ -13,7 +13,9 @@ Point = collections.namedtuple('Point',
 
 def main():
     t_start = time.time()
-    img = cv2.imread('input/4122AC35FBF7C6F7B71089A50CDC1814.jpg')
+    # img = cv2.imread('input/4122AC35FBF7C6F7B71089A50CDC1814.jpg')
+    img = cv2.imread('input/GOPR0011.JPG')
+    assert img is not None, "Failed to load image"
     locator = MarkerTracker.MarkerTracker(order=2,
                                           kernel_size=45,
                                           scale_factor=40)
@@ -42,8 +44,14 @@ def main():
 
     centers = map(get_center_of_mass, contours)
     # Select a central center of mass
+    # TODO: Make this adaptive, so it is not tied to the location 
+    # of the chessboard and size of the image.
 
-    central_centers = np.array(filter(lambda c: abs(c[0] - 2700) < 300 and abs(c[1] - 1800) < 300, centers))
+    print(img.shape)
+    central_centers_temp = np.array(filter(lambda c: abs(c[0] - img.shape[0] / 2)< 300, centers))
+    print(central_centers_temp)
+    central_centers = np.array(filter(lambda c: (c[1] - img.shape[1] / 2) < 300, central_centers_temp))
+    print(central_centers)
     selected_center = central_centers[0]
 
     # Locate nearby centers
@@ -71,7 +79,7 @@ def attempt_two(centers, img, neighbours, selected_center):
     distance_threshold = 0.06
     print(calibration_points)
 
-    for k in range(30):
+    for k in range(40):
         for x_index in calibration_points.keys():
             for y_index in calibration_points[x_index].keys():
                 rule_one(calibration_points, centers, distance_threshold, x_index, y_index)
@@ -88,7 +96,7 @@ def attempt_two(centers, img, neighbours, selected_center):
                        tuple(cal_point.astype(int)),
                        40,
                        (0, 0, 255),
-                       10)
+                       2)
     cv2.imwrite("output/30_local_maxima.png", canvas)
 
 
@@ -209,7 +217,7 @@ def attempt_one(centers, img, neighbours, selected_center):
     print(center_point)
     calibration_points = []
     current_point = center_point
-    for k in range(10):
+    for k in range(30):
         probe_location = current_point.position + current_point.direction_a
         neighbour_location, _ = locate_nearest_neighbour(centers,
                                                          probe_location,
@@ -233,17 +241,17 @@ def draw_calibration_point(canvas, center_point):
                center=tuple(center_point.position.astype(int)),
                radius=20,
                color=(255, 255, 0),
-               thickness=5)
+               thickness=1)
     cv2.circle(img=canvas,
                center=tuple((center_point.position + center_point.direction_a).astype(int)),
                radius=20,
                color=(255, 0, 255),
-               thickness=5)
+               thickness=1)
     cv2.circle(img=canvas,
                center=tuple((center_point.position + center_point.direction_b).astype(int)),
                radius=20,
                color=(255, 0, 255),
-               thickness=5)
+               thickness=1)
 
 
 def locate_nearest_neighbour(neighbours,
@@ -266,9 +274,13 @@ def distance_to_ref(ref_point):
 
 def get_center_of_mass(contour):
     m = cv2.moments(contour)
-    cx = m["m10"] / m["m00"]
-    cy = m["m01"] / m["m00"]
-    return np.array([cx, cy])
+    if m["m00"] > 0:
+        cx = m["m10"] / m["m00"]
+        cy = m["m01"] / m["m00"]
+        result = np.array([cx, cy])
+    else:
+        result = np.array([contour[0][0][0], contour[0][0][1]])
+    return result
 
 
 def peaks_relative_to_neighbourhood(response, neighbourhoodsize, value_to_add):
