@@ -249,8 +249,8 @@ class ChessBoardCornerDetector():
     def locate_nearest_neighbour(self,
                                  selected_center,
                                  minimum_distance_from_selected_center=0):
-        (d, i) = self.centers_kdtree.query(np.array(selected_center).reshape(1,
-            -1), 2)
+        reshaped_query_array = np.array(selected_center).reshape(1, -1)
+        (d, i) = self.centers_kdtree.query(reshaped_query_array, 2)
 
         if d[0][0] <= minimum_distance_from_selected_center:
             return self.centers[i[0][1]], d[0][1]
