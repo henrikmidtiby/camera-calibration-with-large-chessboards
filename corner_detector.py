@@ -4,6 +4,7 @@ import MarkerTracker
 import math
 import time
 import collections
+import sklearn.neighbors
 
 
 class ChessBoardCornerDetector():
@@ -99,6 +100,9 @@ class ChessBoardCornerDetector():
 
 
     def enumerate_peaks(self, centers, img, neighbours, selected_center):
+        self.centers = centers
+        self.centers_kdtree = sklearn.neighbors.KDTree(np.array(self.centers))
+
         self.calibration_points = self.initialize_calibration_points(neighbours, selected_center)
 
         self.points_to_examine_queue = list()
@@ -125,12 +129,11 @@ class ChessBoardCornerDetector():
 
 
     def initialize_calibration_points(self, neighbours, selected_center):
-        closest_neighbour, _ = self.locate_nearest_neighbour(neighbours, selected_center)
+        closest_neighbour, _ = self.locate_nearest_neighbour(selected_center)
         direction = selected_center - closest_neighbour
         rotation_matrix = np.array([[0, 1], [-1, 0]])
         hat_vector = np.matmul(direction, rotation_matrix)
-        direction_b_neighbour, _ = self.locate_nearest_neighbour(neighbours,
-                                                            selected_center + hat_vector,
+        direction_b_neighbour, _ = self.locate_nearest_neighbour(selected_center + hat_vector,
                                                             minimum_distance_from_selected_center=-1)
 
         calibration_points = collections.defaultdict(dict)
@@ -159,8 +162,7 @@ class ChessBoardCornerDetector():
             position_two = self.calibration_points[x_index - 1][y_index + 1]
             position_three = self.calibration_points[x_index][y_index]
             predicted_location = position_two + position_three - position_one
-            location, distance = self.locate_nearest_neighbour(centers,
-                                                          predicted_location,
+            location, distance = self.locate_nearest_neighbour(predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_three - position_one)
             if distance / reference_distance < self.distance_threshold:
@@ -179,8 +181,7 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index - 1][y_index]
             position_two = self.calibration_points[x_index][y_index]
             predicted_location = 2 * position_two - position_one
-            location, distance = self.locate_nearest_neighbour(centers,
-                                                          predicted_location,
+            location, distance = self.locate_nearest_neighbour(predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
@@ -201,8 +202,7 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index][y_index]
             position_two = self.calibration_points[x_index][y_index - 1]
             predicted_location = 2 * position_one - position_two
-            location, distance = self.locate_nearest_neighbour(centers,
-                                                          predicted_location,
+            location, distance = self.locate_nearest_neighbour(predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
@@ -222,8 +222,7 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index][y_index]
             position_two = self.calibration_points[x_index][y_index + 1]
             predicted_location = 2 * position_one - position_two
-            location, distance = self.locate_nearest_neighbour(centers,
-                                                          predicted_location,
+            location, distance = self.locate_nearest_neighbour(predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
@@ -242,8 +241,7 @@ class ChessBoardCornerDetector():
             position_one = self.calibration_points[x_index + 1][y_index]
             position_two = self.calibration_points[x_index][y_index]
             predicted_location = 2 * position_two - position_one
-            location, distance = self.locate_nearest_neighbour(centers,
-                                                          predicted_location,
+            location, distance = self.locate_nearest_neighbour(predicted_location,
                                                           minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
@@ -256,18 +254,15 @@ class ChessBoardCornerDetector():
 
 
     def locate_nearest_neighbour(self,
-                                 neighbours,
                                  selected_center,
                                  minimum_distance_from_selected_center=0):
-        min_distance = np.inf
-        closest_neighbour = None
-        for neighbour in neighbours:
-            distance = self.distance_to_ref(selected_center)(neighbour)
-            if distance < min_distance:
-                if distance > minimum_distance_from_selected_center:
-                    min_distance = distance
-                    closest_neighbour = neighbour
-        return closest_neighbour, min_distance
+        (d, i) = self.centers_kdtree.query(np.array(selected_center).reshape(1,
+            -1), 2)
+
+        if d[0][0] <= minimum_distance_from_selected_center:
+            return self.centers[i[0][1]], d[0][1]
+        else:
+            return self.centers[i[0][0]], d[0][0]
 
 
     def distance_to_ref(self, ref_point):
