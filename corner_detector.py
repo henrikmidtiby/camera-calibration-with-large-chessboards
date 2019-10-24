@@ -167,7 +167,7 @@ class ChessBoardCornerDetector():
             reference_distance = np.linalg.norm(position_three - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index + 1] = location
-                print('Added point using rule 3')
+                #print('Added point using rule 3')
                 self.points_to_examine_queue.append((x_index, y_index + 1))
         except:
             pass
@@ -186,8 +186,8 @@ class ChessBoardCornerDetector():
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index + 1][y_index] = location
-                print('Added point using rule 2 (%d, %d) + (%d %d) = (%d %d)' %
-                      (x_index - 1, y_index, x_index, y_index, x_index + 1, y_index))
+                #print('Added point using rule 2 (%d, %d) + (%d %d) = (%d %d)' %
+                #      (x_index - 1, y_index, x_index, y_index, x_index + 1, y_index))
                 self.points_to_examine_queue.append((x_index + 1, y_index))
         except:
             pass
@@ -207,7 +207,7 @@ class ChessBoardCornerDetector():
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index + 1] = location
-                print('Added point using rule 1')
+                #print('Added point using rule 1')
                 self.points_to_examine_queue.append((x_index, y_index + 1))
         except:
             pass
@@ -227,7 +227,7 @@ class ChessBoardCornerDetector():
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index - 1] = location
-                print('Added point using rule 4')
+                #print('Added point using rule 4')
                 self.points_to_examine_queue.append((x_index, y_index - 1))
         except:
             pass
@@ -246,8 +246,8 @@ class ChessBoardCornerDetector():
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index - 1][y_index] = location
-                print('Added point using rule 5 (%d, %d) + (%d %d) = (%d %d)' %
-                      (x_index + 1, y_index, x_index, y_index, x_index - 1, y_index))
+                #print('Added point using rule 5 (%d, %d) + (%d %d) = (%d %d)' %
+                #      (x_index + 1, y_index, x_index, y_index, x_index - 1, y_index))
                 self.points_to_examine_queue.append((x_index - 1, y_index))
         except:
             pass
