@@ -15,7 +15,7 @@ class ChessBoardCornerDetector():
         pass
         
     def detect_chess_board_corners(self, path_to_image):
-        t_start = time.time()
+        # t_start = time.time()
 
         # Load image
         self.img = cv2.imread(path_to_image)
@@ -23,17 +23,17 @@ class ChessBoardCornerDetector():
 
         # Calculate corner responses
         response = self.calculate_corner_responses(self.img)
-        print("%8.2f, convolution" % (time.time() - t_start))
-        cv2.imwrite('output/00_response.png', response)
+        # print("%8.2f, convolution" % (time.time() - t_start))
+        # cv2.imwrite('output/00_response.png', response)
 
         # Localized normalization of responses
         response_relative_to_neighbourhood = self.local_normalization(response, 511)
-        print("%8.2f, relative response" % (time.time() - t_start))
-        cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
+        # print("%8.2f, relative response" % (time.time() - t_start))
+        # cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
 
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
-        cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
+        # cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
 
         # Locate centers of peaks
         centers = self.locate_centers_of_peaks(relative_responses_thresholded)
@@ -46,11 +46,11 @@ class ChessBoardCornerDetector():
 
         # Enumerate detected peaks
         self.calibration_points = self.enumerate_peaks(centers, self.img, neighbours, selected_center)
-        print("%8.2f, grid mapping" % (time.time() - t_start))
+        # print("%8.2f, grid mapping" % (time.time() - t_start))
 
         # Show detected calibration points
-        canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
-        cv2.imwrite("output/30_local_maxima.png", canvas)
+        # canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
+        # cv2.imwrite("output/30_local_maxima.png", canvas)
 
         return self.calibration_points
 
@@ -309,5 +309,5 @@ class ChessBoardCornerDetector():
         return local_min_image_temp
 
 
-cbcd = ChessBoardCornerDetector();
-cbcd.detect_chess_board_corners('input/GOPR0003red.JPG')
+# cbcd = ChessBoardCornerDetector();
+# cbcd.detect_chess_board_corners('input/GOPR0003red.JPG')

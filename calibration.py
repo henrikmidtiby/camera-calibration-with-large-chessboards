@@ -1,27 +1,61 @@
 import numpy as np
 import cv2
-import glob
-
+import argparse
+from pathlib import Path
 from corner_detector import ChessBoardCornerDetector
 
-# Arrays to store object points and image points from all the images.
-objpoints = [] # 3d point in real world space
-imgpoints = [] # 2d points in image plane.
+parser = argparse.ArgumentParser(description='Calibrate camera with multiple images, if no arguments are given, /input and /output in current folder are used')
+parser.add_argument('-i', '--input', metavar='', type=lambda p: Path(p).absolute(), help='the input directory', default=Path(__file__).absolute().parent / "input")
+parser.add_argument('-o', '--output', metavar='', type=lambda p: Path(p).absolute(), help='the output directory', default=Path(__file__).absolute().parent / "output")
+args = parser.parse_args()
 
-# define all image types
-types = ('*.JPG', '*.jpeg', '*.jpg', '*.png')
-# make a list of all the image paths
-files_grabbed = []
-for files in types:
-    files_grabbed.extend(glob.glob('input/' + files))
-for fname in files_grabbed:
-    print(fname)
-    # read image
-    img = cv2.imread(fname)
+
+def main():
+    # make sure output directory exists, otherwise we make it
+    args.output.mkdir(parents=False, exist_ok=True)
+    # import path names of all images
+    list_input = generate_list_of_images(args.input)
+    if len(list_input) == 0:
+        print("ERROR: No files found at the provided input location, program stopped")
+        exit()
+
+    objpoints, imgpoints = [], []  # Every element is the list of one image
+    # detect corners in every image
+    for file_path in list_input:
+        (objp, imgp) = detect_calibration_pattern_in_image(file_path)
+        objpoints.append(objp)
+        imgpoints.append(imgp)
+    # calibrate camera
+    matrix, distortion = calibrate_camera(str(list_input[0]), objpoints, imgpoints)
+    # undistort images
+    undistort_images(list_input, args.output, matrix, distortion)
+    # print output to screen and file
+    print_output(matrix, distortion)
+    write_output(args.output, matrix, distortion)
+
+
+def generate_list_of_images(path_to_dir):
+    """
+    Returns a list of all the image paths in the provided directory
+    """
+    assert(path_to_dir.is_dir())
+    file_paths_input = []
+    for file in path_to_dir.iterdir():
+        if file.suffix.lower() in ['.jpg', '.png', '.jpeg']:
+            file_paths_input.append(file)
+
+    return file_paths_input
+
+
+def detect_calibration_pattern_in_image(file_path):
+    """
+    Returns the coordinates of the detected corners in 3d object points (corresponds to the real world)
+    and the corresponding coordinates in the image calibration plane
+    """
     # define detector
     cbcd = ChessBoardCornerDetector()
     # find all corners using the detector
-    corners = cbcd.detect_chess_board_corners(fname)
+    corners = cbcd.detect_chess_board_corners(str(file_path))
     # count all the corners, necessary to define a np array with fixed size
     count = 0
     for key in corners.keys():
@@ -40,39 +74,61 @@ for fname in files_grabbed:
 
             count2 = count2 + 1
 
-    objpoints.append(objp)
-    imgpoints.append(imgp)
+    return objp, imgp
 
-# grab the first image so we can get the shape of the image (used to initialize the intrinsic camera matrix)
-img = cv2.imread(files_grabbed[0])
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-# calibrate the camera
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+def calibrate_camera(file_name_img, objpoints, imgpoints):
+    """
+    Calibrate camera with the provided object points and image points
+    The image is necessary to get the shape of the image to initialize the intrinsic camera matrix
+    """
+    img = cv2.imread(file_name_img)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # calibrate the camera
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-for fname in files_grabbed:
-    # read image
-    img = cv2.imread(fname)
-    # undistort images
-    h,  w = img.shape[:2]
-    newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+    return mtx, dist
 
-    dst = cv2.undistort(img, mtx, dist, None, newcameramtx)
 
-    # crop the image
-    x, y, w, h = roi
-    dst = dst[y:y+h, x:x+w]
-    cv2.imwrite('output/' + fname[6:],dst)
+def print_output(mtx, dist):
+    """
+    Write calibration matrix and distortion coefficients to screen
+    """
+    print("Calibration matrix: ")
+    print(mtx)
+    print("Distortion parameters (k1, k2, p1, p2, k3):")
+    print(dist)
 
-print("Calibration matrix: ")
-print(mtx)
-print("Distortion parameters (k1, k2, p1, p2, k3):")
-print(dist)
 
-file = open("output/camera_calibration.txt", "w")
-file.write("Calibration matrix: \n")
-for line in mtx:
-    file.write(str(line) + '\n')
-file.write("Distortion parameters (k1, k2, p1, p2, k3): \n")
-file.write(str(dist))
-file.close()
+def write_output(output, mtx, dist):
+    """
+    Write calibration matrix and distortion coefficients to file
+    """
+    output_path = output / 'camera_calibration.txt'
+    with output_path.open(mode="w") as f:
+        f.write("Calibration matrix: \n")
+        for line in mtx:
+            f.write(str(line) + '\n')
+        f.write("Distortion parameters (k1, k2, p1, p2, k3): \n")
+        f.write(str(dist))
+
+
+def undistort_images(list_input, output, mtx, dist):
+    """
+    Undistorts all images in the input folder and places them in the output folder
+    """
+    for fname in list_input:
+        # read image
+        img = cv2.imread(str(fname))
+        # undistort images
+        h,  w = img.shape[:2]
+        newcamera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+
+        dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
+        # crop the image
+        x, y, w, h = roi
+        dst = dst[y:y+h, x:x+w]
+        cv2.imwrite(str(output / fname.name), dst)
+
+
+main()
