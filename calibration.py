@@ -7,8 +7,12 @@ from corner_detector import ChessBoardCornerDetector
 parser = argparse.ArgumentParser(description='Calibrate camera with multiple images, if no arguments are given, /input and /output in current folder are used')
 parser.add_argument('-i', '--input', metavar='', type=lambda p: Path(p).absolute(), help='the input directory', default=Path(__file__).absolute().parent / "input")
 parser.add_argument('-o', '--output', metavar='', type=lambda p: Path(p).absolute(), help='the output directory', default=Path(__file__).absolute().parent / "output")
+parser.add_argument('-f', '--fisheye', dest='fisheye', action='store_true')
 args = parser.parse_args()
-
+min_percentage_coverage = 25
+objpoints, imgpoints = [], []  # Every element is the list of one image
+different_objp = np.zeros(shape=(593, 3), dtype=np.float32)
+# different_imgp = []
 
 def main():
     # make sure output directory exists, otherwise we make it
@@ -19,19 +23,24 @@ def main():
         print("ERROR: No files found at the provided input location, program stopped")
         exit()
 
-    objpoints, imgpoints = [], []  # Every element is the list of one image
+    # objpoints, imgpoints = [], []  # Every element is the list of one image
     # detect corners in every image
     for file_path in list_input:
-        (objp, imgp) = detect_calibration_pattern_in_image(file_path)
-        objpoints.append(objp)
-        imgpoints.append(imgp)
+        (objp, imgp, coverage) = detect_calibration_pattern_in_image(file_path, args.output)
+        if coverage < min_percentage_coverage:
+            print("ERROR: Less than " + str(min_percentage_coverage) +" percent of this image is covered with detected points, this image is excluded from the calibration")
+        else:
+            objpoints.append(objp)
+            imgpoints.append(imgp)
     # calibrate camera
-    matrix, distortion = calibrate_camera(str(list_input[0]), objpoints, imgpoints)
+    matrix, distortion = calibrate_camera(str(list_input[0]), objpoints, imgpoints, args.fisheye)
     # undistort images
-    undistort_images(list_input, args.output, matrix, distortion)
+    path_to_undistorted_images = args.output / '5_undistorted_images'
+    path_to_undistorted_images.mkdir(parents=False, exist_ok=True)
+    undistort_images(list_input, path_to_undistorted_images, matrix, distortion, args.fisheye)
     # print output to screen and file
-    print_output(matrix, distortion)
-    write_output(args.output, matrix, distortion)
+    print_output(matrix, distortion, args.fisheye)
+    write_output(args.output, matrix, distortion, args.fisheye)
 
 
 def generate_list_of_images(path_to_dir):
@@ -47,15 +56,16 @@ def generate_list_of_images(path_to_dir):
     return file_paths_input
 
 
-def detect_calibration_pattern_in_image(file_path):
+def detect_calibration_pattern_in_image(file_path, output_folder):
     """
     Returns the coordinates of the detected corners in 3d object points (corresponds to the real world)
     and the corresponding coordinates in the image calibration plane
     """
+    print(file_path.name)
     # define detector
-    cbcd = ChessBoardCornerDetector()
+    cbcd = ChessBoardCornerDetector(output_folder)
     # find all corners using the detector
-    corners = cbcd.detect_chess_board_corners(str(file_path))
+    corners, coverage = cbcd.detect_chess_board_corners(file_path)
     # count all the corners, necessary to define a np array with fixed size
     count = 0
     for key in corners.keys():
@@ -74,33 +84,52 @@ def detect_calibration_pattern_in_image(file_path):
 
             count2 = count2 + 1
 
-    return objp, imgp
+    return objp, imgp, coverage
 
 
-def calibrate_camera(file_name_img, objpoints, imgpoints):
+def calibrate_camera(file_name_img, objpoints, imgpoints, fisheye = False):
     """
     Calibrate camera with the provided object points and image points
     The image is necessary to get the shape of the image to initialize the intrinsic camera matrix
     """
     img = cv2.imread(file_name_img)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # calibrate the camera
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+    if fisheye:
+        # the fisheye function is way more demanding on the format of the input...
+        objpp = []
+        imgpp = []
+        for k in range(len(objpoints)):
+            objpp.append(objpoints[k].reshape(1, -1, 3))
+            imgpp.append(imgpoints[k].reshape(1, -1, 2))
+        calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC+cv2.fisheye.CALIB_CHECK_COND+cv2.fisheye.CALIB_FIX_SKEW
+        K = np.zeros((3, 3))
+        D = np.zeros((4, 1))
+        N_OK = len(objpoints)
+        rvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(N_OK)]
+        tvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(N_OK)]
+        retval, mtx, dist, rvecs, tvecs	= cv2.fisheye.calibrate(objpp, imgpp, gray.shape[::-1], K, D, rvecs, tvecs, calibration_flags)
+
+    else:
+        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
     return mtx, dist
 
 
-def print_output(mtx, dist):
+def print_output(mtx, dist, fisheye):
     """
     Write calibration matrix and distortion coefficients to screen
     """
     print("Calibration matrix: ")
     print(mtx)
-    print("Distortion parameters (k1, k2, p1, p2, k3):")
+    if fisheye:
+        print("Distortion parameters (k1, k2, k3, k4):")
+    else:
+        print("Distortion parameters (k1, k2, p1, p2, k3):")
     print(dist)
 
 
-def write_output(output, mtx, dist):
+def write_output(output, mtx, dist, fisheye):
     """
     Write calibration matrix and distortion coefficients to file
     """
@@ -109,26 +138,39 @@ def write_output(output, mtx, dist):
         f.write("Calibration matrix: \n")
         for line in mtx:
             f.write(str(line) + '\n')
-        f.write("Distortion parameters (k1, k2, p1, p2, k3): \n")
+        if fisheye:
+            f.write("Distortion parameters (k1, k2, k3, k4):\n")
+        else:
+            f.write("Distortion parameters (k1, k2, p1, p2, k3):\n")
         f.write(str(dist))
 
 
-def undistort_images(list_input, output, mtx, dist):
+def undistort_images(list_input, output, mtx, dist, fisheye):
     """
     Undistorts all images in the input folder and places them in the output folder
     """
-    for fname in list_input:
-        # read image
-        img = cv2.imread(str(fname))
-        # undistort images
-        h,  w = img.shape[:2]
-        newcamera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+    if fisheye:
+        for fname in list_input:
+            # read image
+            img = cv2.imread(str(fname))
+            # undistort images
+            h,  w = img.shape[:2]
+            map1, map2 = cv2.fisheye.initUndistortRectifyMap(mtx, dist, np.eye(3), mtx, (h, w), cv2.CV_16SC2)
+            undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+            cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), undistorted_img)
+    else:
+        for fname in list_input:
+            # read image
+            img = cv2.imread(str(fname))
+            # undistort images
+            h,  w = img.shape[:2]
+            newcamera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
 
-        dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
-        # crop the image
-        x, y, w, h = roi
-        dst = dst[y:y+h, x:x+w]
-        cv2.imwrite(str(output / fname.name), dst)
+            dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
+            # crop the image
+            x, y, w, h = roi
+            dst = dst[y:y+h, x:x+w]
+            cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
 
 
 main()

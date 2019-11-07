@@ -5,35 +5,48 @@ import math
 import time
 import collections
 import sklearn.neighbors
+from pathlib import Path
 
 
 class ChessBoardCornerDetector():
-    def __init__(self):
+    def __init__(self, path_to_output_folder):
         self.threshold_distance_for_central_location = 300
         self.maximum_distance_to_neighbours = 300
         self.distance_threshold = 0.06
+        # making the output folders
+        self.path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
+        self.path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
+        self.path_to_output_response_folder = path_to_output_folder / '1_response'
+        self.path_to_output_response_folder.mkdir(parents=False, exist_ok=True)
+        self.path_to_output_response_neighbourhood_folder = path_to_output_folder / '2_respond_relative_to_neighbourhood'
+        self.path_to_output_response_neighbourhood_folder.mkdir(parents=False, exist_ok=True)
+        self.path_to_output_response_threshold_folder = path_to_output_folder / '3_relative_response_thresholded'
+        self.path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
         pass
         
     def detect_chess_board_corners(self, path_to_image):
         # t_start = time.time()
 
         # Load image
-        self.img = cv2.imread(path_to_image)
+        self.img = cv2.imread(str(path_to_image))
         assert self.img is not None, "Failed to load image"
 
         # Calculate corner responses
         response = self.calculate_corner_responses(self.img)
         # print("%8.2f, convolution" % (time.time() - t_start))
-        # cv2.imwrite('output/00_response.png', response)
+        path_response_1 = self.path_to_output_response_folder / (path_to_image.stem + '_response.png')
+        cv2.imwrite(str(path_response_1), response)
 
         # Localized normalization of responses
         response_relative_to_neighbourhood = self.local_normalization(response, 511)
         # print("%8.2f, relative response" % (time.time() - t_start))
-        # cv2.imwrite("output/25_response_relative_to_neighbourhood.png", response_relative_to_neighbourhood * 255)
+        path_response_2 = self.path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
+        cv2.imwrite(str(path_response_2), response_relative_to_neighbourhood * 255)
 
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
-        # cv2.imwrite("output/26_relative_response_thresholded.png", relative_responses_thresholded)
+        path_response_3 = self.path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
+        cv2.imwrite(str(path_response_3), relative_responses_thresholded)
 
         # Locate centers of peaks
         centers = self.locate_centers_of_peaks(relative_responses_thresholded)
@@ -45,14 +58,18 @@ class ChessBoardCornerDetector():
         neighbours = self.locate_nearby_centers(selected_center, centers)
 
         # Enumerate detected peaks
-        self.calibration_points = self.enumerate_peaks(centers, self.img, neighbours, selected_center)
+        calibration_points = self.enumerate_peaks(centers, self.img, neighbours, selected_center)
         # print("%8.2f, grid mapping" % (time.time() - t_start))
 
         # Show detected calibration points
-        # canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
-        # cv2.imwrite("output/30_local_maxima.png", canvas)
+        canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
+        path_local_max = self.path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
+        cv2.imwrite(str(path_local_max), canvas)
 
-        return self.calibration_points
+        # Detect image covered
+        percentage_image_covered = self.image_coverage(calibration_points, self.img)
+
+        return self.calibration_points, percentage_image_covered
 
 
     def calculate_corner_responses(self, img):
@@ -307,6 +324,25 @@ class ChessBoardCornerDetector():
             response = cv2.resize(eroded_response, None, fx=0.5, fy=0.5)
         local_min_image_temp = cv2.resize(response, (orig_size[1], orig_size[0]))
         return local_min_image_temp
+
+
+    def image_coverage(self, calibration_points, img):
+        h = img.shape[0]
+        w = img.shape[1]
+        score = np.zeros((10, 10))
+        for key in calibration_points.keys():
+            for inner_key in calibration_points[key].keys():
+                (x, y) = calibration_points[key][inner_key]
+                (x_bin, x_rem) = divmod(x, w / 10)
+                (y_bin, y_rem) = divmod(y, h / 10)
+                if x_bin is 10:
+                    x_bin = 9
+                if y_bin is 10:
+                    y_bin = 9
+                score[int(x_bin)][int(y_bin)] += 1
+
+        return np.count_nonzero(score)
+
 
 
 # cbcd = ChessBoardCornerDetector();
