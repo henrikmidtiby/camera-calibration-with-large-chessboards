@@ -11,7 +11,7 @@ pip install -r requirements
 Enter the directory and issue the following commands:
 ```
 source env/bin/activate
-python corner_detector.py
+python calibration.py --input folder --output folder --fisheye
 ```
 
 ## Development goal
