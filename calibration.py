@@ -169,8 +169,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
             # crop the image
             x, y, w, h = roi
-            dst = dst[y:y+h, x:x+w]
+            #dst = dst[y:y+h, x:x+w]
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
-
 
 main()
