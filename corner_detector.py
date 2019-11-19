@@ -8,23 +8,23 @@ import sklearn.neighbors
 from pathlib import Path
 
 
-class ChessBoardCornerDetector():
-    def __init__(self, path_to_output_folder):
+class ChessBoardCornerDetector:
+    def __init__(self):
         self.threshold_distance_for_central_location = 300
         self.maximum_distance_to_neighbours = 300
         self.distance_threshold = 0.06
-        # making the output folders
-        self.path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
-        self.path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
-        self.path_to_output_response_folder = path_to_output_folder / '1_response'
-        self.path_to_output_response_folder.mkdir(parents=False, exist_ok=True)
-        self.path_to_output_response_neighbourhood_folder = path_to_output_folder / '2_respond_relative_to_neighbourhood'
-        self.path_to_output_response_neighbourhood_folder.mkdir(parents=False, exist_ok=True)
-        self.path_to_output_response_threshold_folder = path_to_output_folder / '3_relative_response_thresholded'
-        self.path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
         pass
         
-    def detect_chess_board_corners(self, path_to_image):
+    def detect_chess_board_corners(self, path_to_image, path_to_output_folder):
+        # making the output folders
+        path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
+        path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
+        path_to_output_response_folder = path_to_output_folder / '1_response'
+        path_to_output_response_folder.mkdir(parents=False, exist_ok=True)
+        path_to_output_response_neighbourhood_folder = path_to_output_folder / '2_respond_relative_to_neighbourhood'
+        path_to_output_response_neighbourhood_folder.mkdir(parents=False, exist_ok=True)
+        path_to_output_response_threshold_folder = path_to_output_folder / '3_relative_response_thresholded'
+        path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
         # t_start = time.time()
 
         # Load image
@@ -34,18 +34,18 @@ class ChessBoardCornerDetector():
         # Calculate corner responses
         response = self.calculate_corner_responses(self.img)
         # print("%8.2f, convolution" % (time.time() - t_start))
-        path_response_1 = self.path_to_output_response_folder / (path_to_image.stem + '_response.png')
+        path_response_1 = path_to_output_response_folder / (path_to_image.stem + '_response.png')
         cv2.imwrite(str(path_response_1), response)
 
         # Localized normalization of responses
         response_relative_to_neighbourhood = self.local_normalization(response, 511)
         # print("%8.2f, relative response" % (time.time() - t_start))
-        path_response_2 = self.path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
+        path_response_2 = path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
         cv2.imwrite(str(path_response_2), response_relative_to_neighbourhood * 255)
 
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
-        path_response_3 = self.path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
+        path_response_3 = path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
         cv2.imwrite(str(path_response_3), relative_responses_thresholded)
 
         # Locate centers of peaks
@@ -63,14 +63,48 @@ class ChessBoardCornerDetector():
 
         # Show detected calibration points
         canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
-        path_local_max = self.path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
+        path_local_max = path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
         cv2.imwrite(str(path_local_max), canvas)
 
         # Detect image covered
         percentage_image_covered = self.image_coverage(calibration_points, self.img)
 
-        return self.calibration_points, percentage_image_covered
+        # How straight are the points?
+        stats = self.statistics(calibration_points)
 
+        return self.calibration_points, percentage_image_covered, stats
+
+        # Not necessary to output the images when we just want the statistics after undistorting
+    def make_statistics(self, path_to_image):
+        # Load image
+        self.img = cv2.imread(str(path_to_image))
+        assert self.img is not None, "Failed to load image"
+
+        # Calculate corner responses
+        response = self.calculate_corner_responses(self.img)
+
+        # Localized normalization of responses
+        response_relative_to_neighbourhood = self.local_normalization(response, 511)
+
+        # Threshold responses
+        relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
+
+        # Locate centers of peaks
+        centers = self.locate_centers_of_peaks(relative_responses_thresholded)
+
+        # Select central center of mass
+        selected_center = self.select_central_peak_location(centers)
+
+        # Locate nearby centers
+        neighbours = self.locate_nearby_centers(selected_center, centers)
+
+        # Enumerate detected peaks
+        calibration_points = self.enumerate_peaks(centers, self.img, neighbours, selected_center)
+
+        # How straight are the points?
+        stats = self.statistics(calibration_points)
+
+        return stats
 
     def calculate_corner_responses(self, img):
         locator = MarkerTracker.MarkerTracker(order=2,
@@ -343,7 +377,48 @@ class ChessBoardCornerDetector():
 
         return np.count_nonzero(score)
 
+    def shortest_distance(self, x1, y1, a, b, c):
+
+        d = abs((a * x1 + b * y1 + c)) / (math.sqrt(a * a + b * b))
+        return d
+
+    def statistics(self, points):
+        # Make a list in which we will return the statistics. This list will be contain two elements, each a tuple.
+        # The first tuple is the amount of tested points and average pixel deviation from straight lines for the
+        # horizontal points, the second tuple is the same for the vertical points.
+        return_list = []
+        # Check if the outer key defines the rows or the columns, this is not always the same.
+        horizontal = 1 if points[0][0][0] - points[0][1][0] < points[0][0][1] - points[0][1][1] else 0
+        # Flip the dictionary so we can do this statistic for horizontal and vertical points.
+        flipped = collections.defaultdict(dict)
+        for key, val in points.items():
+            for subkey, subval in val.items():
+                flipped[subkey][key] = subval
+        # Make sure that we always have the same order, horizontal first in this case.
+        horiz_first = (points, flipped) if horizontal else (flipped, points)
+        for list in horiz_first:
+            count, som = 0, 0
+            for k in list.values():
+                single_col_x, single_col_y = [], []
+                if len(k) > 2:
+                    for l in k.values():
+                        single_col_x.append(l[0])
+                        single_col_y.append(l[1])
+                    # Fit a line through the horizontal or vertical points
+                    z = np.polynomial.polynomial.polyfit(single_col_x, single_col_y, 1)
+                    # Calculate the distance for each point to the line
+                    for l in range(len(single_col_x)):
+                        d = self.shortest_distance(single_col_x[l],single_col_y[l],z[1],-1,z[0])
+                        count += 1
+                        som += d
+            if count is not 0:
+                return_list.append([count, som/count])
+            else:
+                return_list.append([count, 0])
+
+        return return_list
 
 
-# cbcd = ChessBoardCornerDetector();
-# cbcd.detect_chess_board_corners('input/GOPR0003red.JPG')
+# cbcd = ChessBoardCornerDetector(Path(__file__).absolute().parent / "output");
+# p = Path(__file__).absolute().parent / "input" / 'GOPR0003red.JPG'
+# cbcd.detect_chess_board_corners(p)

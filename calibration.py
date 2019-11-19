@@ -11,6 +11,7 @@ parser.add_argument('-f', '--fisheye', dest='fisheye', action='store_true')
 args = parser.parse_args()
 min_percentage_coverage = 25
 objpoints, imgpoints = [], []  # Every element is the list of one image
+stats_before, stats_after, coverage_images = [], [], []
 different_objp = np.zeros(shape=(593, 3), dtype=np.float32)
 # different_imgp = []
 
@@ -26,12 +27,15 @@ def main():
     # objpoints, imgpoints = [], []  # Every element is the list of one image
     # detect corners in every image
     for file_path in list_input:
-        (objp, imgp, coverage) = detect_calibration_pattern_in_image(file_path, args.output)
+        (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(file_path, args.output)
+        stats_before.append(statistics)
+        coverage_images.append(coverage)
         if coverage < min_percentage_coverage:
-            print("ERROR: Less than " + str(min_percentage_coverage) +" percent of this image is covered with detected points, this image is excluded from the calibration")
+            print("ERROR: Less than " + str(min_percentage_coverage) +"% is covered with points, excluding from calibration")
         else:
             objpoints.append(objp)
             imgpoints.append(imgp)
+
     # calibrate camera
     matrix, distortion = calibrate_camera(str(list_input[0]), objpoints, imgpoints, args.fisheye)
     # undistort images
@@ -40,7 +44,7 @@ def main():
     undistort_images(list_input, path_to_undistorted_images, matrix, distortion, args.fisheye)
     # print output to screen and file
     print_output(matrix, distortion, args.fisheye)
-    write_output(args.output, matrix, distortion, args.fisheye)
+    write_output(list_input, args.output, matrix, distortion, args.fisheye)
 
 
 def generate_list_of_images(path_to_dir):
@@ -63,9 +67,9 @@ def detect_calibration_pattern_in_image(file_path, output_folder):
     """
     print(file_path.name)
     # define detector
-    cbcd = ChessBoardCornerDetector(output_folder)
+    cbcd = ChessBoardCornerDetector()
     # find all corners using the detector
-    corners, coverage = cbcd.detect_chess_board_corners(file_path)
+    corners, coverage, statistics = cbcd.detect_chess_board_corners(file_path, output_folder)
     # count all the corners, necessary to define a np array with fixed size
     count = 0
     for key in corners.keys():
@@ -84,7 +88,7 @@ def detect_calibration_pattern_in_image(file_path, output_folder):
 
             count2 = count2 + 1
 
-    return objp, imgp, coverage
+    return objp, imgp, coverage, statistics
 
 
 def calibrate_camera(file_name_img, objpoints, imgpoints, fisheye = False):
@@ -129,7 +133,7 @@ def print_output(mtx, dist, fisheye):
     print(dist)
 
 
-def write_output(output, mtx, dist, fisheye):
+def write_output(list_input, output, mtx, dist, fisheye):
     """
     Write calibration matrix and distortion coefficients to file
     """
@@ -139,10 +143,24 @@ def write_output(output, mtx, dist, fisheye):
         for line in mtx:
             f.write(str(line) + '\n')
         if fisheye:
-            f.write("Distortion parameters (k1, k2, k3, k4):\n")
+            f.write("\nDistortion parameters (k1, k2, k3, k4):\n")
         else:
-            f.write("Distortion parameters (k1, k2, p1, p2, k3):\n")
+            f.write("\nDistortion parameters (k1, k2, p1, p2, k3):\n")
         f.write(str(dist))
+        f.write("\n\nStatistics:")
+        for num, fname in enumerate(list_input):
+            f.write("\n\n\t"+ str(fname.name))
+            f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%")
+            f.write("\n\t\tBefore undistorting:")
+            f.write("\n\t\t\tHorizontal points : " + str(stats_before[num][0][0]))
+            f.write("\n\t\t\tAverage horizontal distortion: " + str(round(stats_before[num][0][1],2)))
+            f.write("\n\t\t\tVertical points : " + str(stats_before[num][1][0]))
+            f.write("\n\t\t\tAverage vertical distortion: " + str(round(stats_before[num][1][1],2)))
+            f.write("\n\t\tAfter undistorting:")
+            f.write("\n\t\t\tHorizontal points : " + str(stats_after[num][0][0]))
+            f.write("\n\t\t\tAverage horizontal distortion: " + str(round(stats_after[num][0][1],2)))
+            f.write("\n\t\t\tVertical points : " + str(stats_after[num][1][0]))
+            f.write("\n\t\t\tAverage vertical distortion: " + str(round(stats_after[num][1][1],2)))
 
 
 def undistort_images(list_input, output, mtx, dist, fisheye):
@@ -158,6 +176,10 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             map1, map2 = cv2.fisheye.initUndistortRectifyMap(mtx, dist, np.eye(3), mtx, (h, w), cv2.CV_16SC2)
             undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), undistorted_img)
+            cbcd = ChessBoardCornerDetector()
+            # make stats
+            statistics = cbcd.make_statistics(str(output / (fname.stem + '_undistorted' + fname.suffix)))
+            stats_after.append(statistics)
     else:
         for fname in list_input:
             # read image
@@ -169,8 +191,12 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
             # crop the image
             x, y, w, h = roi
-            dst = dst[y:y+h, x:x+w]
+            # dst = dst[y:y+h, x:x+w]
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
+            cbcd = ChessBoardCornerDetector()
+            # make stats
+            statistics = cbcd.make_statistics(str(output / (fname.stem + '_undistorted' + fname.suffix)))
+            stats_after.append(statistics)
 
 
 main()
