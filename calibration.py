@@ -191,12 +191,11 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
             # crop the image
             x, y, w, h = roi
-            # dst = dst[y:y+h, x:x+w]
+            #dst = dst[y:y+h, x:x+w]
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
             cbcd = ChessBoardCornerDetector()
             # make stats
             statistics = cbcd.make_statistics(str(output / (fname.stem + '_undistorted' + fname.suffix)))
             stats_after.append(statistics)
-
 
 main()
