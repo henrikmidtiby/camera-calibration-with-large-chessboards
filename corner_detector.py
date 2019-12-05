@@ -12,7 +12,7 @@ class ChessBoardCornerDetector:
     def __init__(self):
         self.threshold_distance_for_central_location = 300
         self.maximum_distance_to_neighbours = 300
-        self.distance_threshold = 0.06
+        self.distance_threshold = 0.15
         pass
         
     def detect_chess_board_corners(self, path_to_image, path_to_output_folder):
@@ -54,15 +54,13 @@ class ChessBoardCornerDetector:
         # Select central center of mass
         selected_center = self.select_central_peak_location(centers)
 
-        # Locate nearby centers
-        neighbours = self.locate_nearby_centers(selected_center, centers)
-
-        # Enumerate detected peaks
-        calibration_points = self.enumerate_peaks(centers, self.img, neighbours, selected_center)
+         # Enumerate detected peaks
+        calibration_points = self.enumerate_peaks(centers, selected_center)
         # print("%8.2f, grid mapping" % (time.time() - t_start))
 
         # Show detected calibration points
         canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
+        cv2.circle(canvas, tuple(selected_center.astype(int)), 10, (0, 0, 255), -1)
         path_local_max = path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
         cv2.imwrite(str(path_local_max), canvas)
 
@@ -95,11 +93,8 @@ class ChessBoardCornerDetector:
         # Select central center of mass
         selected_center = self.select_central_peak_location(centers)
 
-        # Locate nearby centers
-        neighbours = self.locate_nearby_centers(selected_center, centers)
-
         # Enumerate detected peaks
-        calibration_points = self.enumerate_peaks(centers, self.img, neighbours, selected_center)
+        calibration_points = self.enumerate_peaks(centers, selected_center)
 
         # How straight are the points?
         stats = self.statistics(calibration_points)
@@ -135,6 +130,7 @@ class ChessBoardCornerDetector:
 
     def select_central_peak_location(self, centers):
         mean_position_of_centers = np.mean(centers, axis=0)
+        # TODO: Choose the point nearest the mean center of mass position.
         central_centers_temp = np.array(list(filter(lambda c: abs(c[0] -
             mean_position_of_centers[0]) <
             self.threshold_distance_for_central_location, centers)))
@@ -144,17 +140,11 @@ class ChessBoardCornerDetector:
         return central_centers[0]
 
 
-    def locate_nearby_centers(self, selected_center, centers):
-        neighbours = list(filter(lambda c: abs(selected_center[0] - c[0]) +
-            abs(selected_center[1] - c[1]) < self.maximum_distance_to_neighbours, centers))
-        return neighbours
-
-
-    def enumerate_peaks(self, centers, img, neighbours, selected_center):
+    def enumerate_peaks(self, centers, selected_center):
         self.centers = centers
         self.centers_kdtree = sklearn.neighbors.KDTree(np.array(self.centers))
 
-        self.calibration_points = self.initialize_calibration_points(neighbours, selected_center)
+        self.calibration_points = self.initialize_calibration_points(selected_center)
 
         self.points_to_examine_queue = list()
         self.points_to_examine_queue.append((0, 0))
@@ -179,7 +169,7 @@ class ChessBoardCornerDetector:
         return canvas 
 
 
-    def initialize_calibration_points(self, neighbours, selected_center):
+    def initialize_calibration_points(self, selected_center):
         closest_neighbour, _ = self.locate_nearest_neighbour(selected_center)
         direction = selected_center - closest_neighbour
         rotation_matrix = np.array([[0, 1], [-1, 0]])
