@@ -130,14 +130,8 @@ class ChessBoardCornerDetector:
 
     def select_central_peak_location(self, centers):
         mean_position_of_centers = np.mean(centers, axis=0)
-        # TODO: Choose the point nearest the mean center of mass position.
-        central_centers_temp = np.array(list(filter(lambda c: abs(c[0] -
-            mean_position_of_centers[0]) <
-            self.threshold_distance_for_central_location, centers)))
-        central_centers = np.array(list(filter(lambda c: (c[1] -
-            mean_position_of_centers[1]) <
-            self.threshold_distance_for_central_location, central_centers_temp)))
-        return central_centers[0]
+        central_center = np.array(sorted(list(centers), key=lambda c: np.sqrt((c[0] - mean_position_of_centers[0]) ** 2 + (c[1] - mean_position_of_centers[1]) ** 2)))
+        return central_center[0]
 
 
     def enumerate_peaks(self, centers, selected_center):
