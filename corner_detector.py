@@ -396,14 +396,20 @@ class ChessBoardCornerDetector:
                 flipped[subkey][key] = subval
         # Make sure that we always have the same order, horizontal first in this case.
         horiz_first = (points, flipped) if horizontal else (flipped, points)
-        for list in horiz_first:
+        for index, list in enumerate(horiz_first):
             count, som = 0, 0
             for k in list.values():
                 single_col_x, single_col_y = [], []
                 if len(k) > 2:
                     for l in k.values():
-                        single_col_x.append(l[0])
-                        single_col_y.append(l[1])
+                        # for the vertical points, X and Y values are switched because polyfit
+                        # does not work (well) for points (almost) vertical points
+                        if index == 0:
+                            single_col_x.append(l[0])
+                            single_col_y.append(l[1])
+                        else:
+                            single_col_x.append(l[1])
+                            single_col_y.append(l[0])
                     # Fit a line through the horizontal or vertical points
                     z = np.polynomial.polynomial.polyfit(single_col_x, single_col_y, 1)
                     # Calculate the distance for each point to the line

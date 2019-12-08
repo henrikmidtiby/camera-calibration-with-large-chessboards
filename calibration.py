@@ -147,10 +147,39 @@ def write_output(list_input, output, mtx, dist, fisheye):
         else:
             f.write("\nDistortion parameters (k1, k2, p1, p2, k3):\n")
         f.write(str(dist))
-        f.write("\n\nStatistics:")
+        f.write("\n\nSummary statistics:\n")
+        hor_before, ver_before, hor_after, ver_after = 0.0,0.0,0.0,0.0
+        good_images = 0
+        f.write("Image".ljust(25) + "Coverage".ljust(12) + "Avg distor bef".ljust(17)+ "Avg distor aft\n" )
         for num, fname in enumerate(list_input):
-            f.write("\n\n\t"+ str(fname.name))
-            f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%")
+            if coverage_images[num] >= min_percentage_coverage:
+                avg_before = round(stats_before[num][0][1] + stats_before[num][1][1] /2 ,2)
+                avg_after = round(stats_after[num][0][1] + stats_after[num][1][1] /2 ,2)
+                hor_before += round(stats_before[num][0][1],2)
+                ver_before += round(stats_before[num][1][1],2)
+                hor_after += round(stats_after[num][0][1],2)
+                ver_after += round(stats_after[num][1][1],2)
+                f.write(str(fname.name).ljust(25) + (str(coverage_images[num]).rjust(3) + '%').ljust(12) + str(avg_before).ljust(17) + str(avg_after) + '\n')
+                good_images += 1
+            else:
+                f.write(str(fname.name).ljust(25) + (str(coverage_images[num]).rjust(3) + '%').ljust(12) + " -----EXCLUDED-----\n" )
+        avg_hor_before = round(hor_before / good_images,2)
+        avg_ver_before = round(ver_before / good_images,2)
+        avg_hor_after = round(hor_after / good_images,2)
+        avg_ver_after = round(ver_after / good_images,2)
+        f.write("\nAverage horizontal distortion before: " + str(avg_hor_before).ljust(6) + "pixels from ideal line")
+        f.write("\nAverage vertical distortion before:   " + str(avg_ver_before).ljust(6) + "pixels from ideal line")
+        f.write("\nAverage horizontal distortion after:  " + str(avg_hor_after).ljust(6) + "pixels from ideal line")
+        f.write("\nAverage vertical distortion after:    " + str(avg_ver_after).ljust(6) + "pixels from ideal line")
+        f.write("\nImages with a coverage lower than " + str(min_percentage_coverage) + "% are excluded from the calibration")
+
+        f.write("\n\nExtended statistics:")
+        for num, fname in enumerate(list_input):
+            f.write("\n\t" + str(fname.name))
+            if coverage_images[num] < min_percentage_coverage:
+                f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%  -> EXCLUDED")
+            else:
+                f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%")
             f.write("\n\t\tBefore undistorting:")
             f.write("\n\t\t\tHorizontal points : " + str(stats_before[num][0][0]))
             f.write("\n\t\t\tAverage horizontal distortion: " + str(round(stats_before[num][0][1],2)))
@@ -161,6 +190,7 @@ def write_output(list_input, output, mtx, dist, fisheye):
             f.write("\n\t\t\tAverage horizontal distortion: " + str(round(stats_after[num][0][1],2)))
             f.write("\n\t\t\tVertical points : " + str(stats_after[num][1][0]))
             f.write("\n\t\t\tAverage vertical distortion: " + str(round(stats_after[num][1][1],2)))
+
 
 
 def undistort_images(list_input, output, mtx, dist, fisheye):
