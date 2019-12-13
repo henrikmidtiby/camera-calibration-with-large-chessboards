@@ -14,18 +14,20 @@ class ChessBoardCornerDetector:
         self.maximum_distance_to_neighbours = 300
         self.distance_threshold = 0.15
         pass
-        
-    def detect_chess_board_corners(self, path_to_image, path_to_output_folder):
-        # making the output folders
-        path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
-        path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
-        path_to_output_response_folder = path_to_output_folder / '1_response'
-        path_to_output_response_folder.mkdir(parents=False, exist_ok=True)
-        path_to_output_response_neighbourhood_folder = path_to_output_folder / '2_respond_relative_to_neighbourhood'
-        path_to_output_response_neighbourhood_folder.mkdir(parents=False, exist_ok=True)
-        path_to_output_response_threshold_folder = path_to_output_folder / '3_relative_response_thresholded'
-        path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
-        # t_start = time.time()
+
+    def detect_chess_board_corners(self, path_to_image, path_to_output_folder, debug = False):
+
+        if debug:
+            # making the output folders
+            path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
+            path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
+            path_to_output_response_folder = path_to_output_folder / '1_response'
+            path_to_output_response_folder.mkdir(parents=False, exist_ok=True)
+            path_to_output_response_neighbourhood_folder = path_to_output_folder / '2_respond_relative_to_neighbourhood'
+            path_to_output_response_neighbourhood_folder.mkdir(parents=False, exist_ok=True)
+            path_to_output_response_threshold_folder = path_to_output_folder / '3_relative_response_thresholded'
+            path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
+            # t_start = time.time()
 
         # Load image
         self.img = cv2.imread(str(path_to_image))
@@ -34,19 +36,13 @@ class ChessBoardCornerDetector:
         # Calculate corner responses
         response = self.calculate_corner_responses(self.img)
         # print("%8.2f, convolution" % (time.time() - t_start))
-        path_response_1 = path_to_output_response_folder / (path_to_image.stem + '_response.png')
-        cv2.imwrite(str(path_response_1), response)
 
         # Localized normalization of responses
         response_relative_to_neighbourhood = self.local_normalization(response, 511)
         # print("%8.2f, relative response" % (time.time() - t_start))
-        path_response_2 = path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
-        cv2.imwrite(str(path_response_2), response_relative_to_neighbourhood * 255)
 
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
-        path_response_3 = path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
-        cv2.imwrite(str(path_response_3), relative_responses_thresholded)
 
         # Locate centers of peaks
         centers = self.locate_centers_of_peaks(relative_responses_thresholded)
@@ -54,15 +50,23 @@ class ChessBoardCornerDetector:
         # Select central center of mass
         selected_center = self.select_central_peak_location(centers)
 
-         # Enumerate detected peaks
+        # Enumerate detected peaks
         calibration_points = self.enumerate_peaks(centers, selected_center)
         # print("%8.2f, grid mapping" % (time.time() - t_start))
 
-        # Show detected calibration points
-        canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
-        cv2.circle(canvas, tuple(selected_center.astype(int)), 10, (0, 0, 255), -1)
-        path_local_max = path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
-        cv2.imwrite(str(path_local_max), canvas)
+        # write output images if debug is True
+        if debug:
+            path_response_1 = path_to_output_response_folder / (path_to_image.stem + '_response.png')
+            cv2.imwrite(str(path_response_1), response)
+            path_response_2 = path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
+            cv2.imwrite(str(path_response_2), response_relative_to_neighbourhood * 255)
+            path_response_3 = path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
+            cv2.imwrite(str(path_response_3), relative_responses_thresholded)
+            canvas = self.show_detected_calibration_points(self.img, self.calibration_points)
+            cv2.circle(canvas, tuple(selected_center.astype(int)), 10, (0, 0, 255), -1)
+            path_local_max = path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
+            cv2.imwrite(str(path_local_max), canvas)
+
 
         # Detect image covered
         percentage_image_covered = self.image_coverage(calibration_points, self.img)

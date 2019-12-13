@@ -8,6 +8,8 @@ parser = argparse.ArgumentParser(description='Calibrate camera with multiple ima
 parser.add_argument('-i', '--input', metavar='', type=lambda p: Path(p).absolute(), help='the input directory', default=Path(__file__).absolute().parent / "input")
 parser.add_argument('-o', '--output', metavar='', type=lambda p: Path(p).absolute(), help='the output directory', default=Path(__file__).absolute().parent / "output")
 parser.add_argument('-f', '--fisheye', dest='fisheye', action='store_true')
+parser.add_argument('-d', '--debug', dest='debug', action='store_true')
+
 args = parser.parse_args()
 min_percentage_coverage = 25
 objpoints, imgpoints = [], []  # Every element is the list of one image
@@ -24,10 +26,9 @@ def main():
         print("ERROR: No files found at the provided input location, program stopped")
         exit()
 
-    # objpoints, imgpoints = [], []  # Every element is the list of one image
     # detect corners in every image
     for file_path in list_input:
-        (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(file_path, args.output)
+        (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(file_path, args.output, args.debug)
         stats_before.append(statistics)
         coverage_images.append(coverage)
         if coverage < min_percentage_coverage:
@@ -60,7 +61,7 @@ def generate_list_of_images(path_to_dir):
     return file_paths_input
 
 
-def detect_calibration_pattern_in_image(file_path, output_folder):
+def detect_calibration_pattern_in_image(file_path, output_folder, debug=False):
     """
     Returns the coordinates of the detected corners in 3d object points (corresponds to the real world)
     and the corresponding coordinates in the image calibration plane
@@ -69,7 +70,7 @@ def detect_calibration_pattern_in_image(file_path, output_folder):
     # define detector
     cbcd = ChessBoardCornerDetector()
     # find all corners using the detector
-    corners, coverage, statistics = cbcd.detect_chess_board_corners(file_path, output_folder)
+    corners, coverage, statistics = cbcd.detect_chess_board_corners(file_path, output_folder, debug)
     # count all the corners, necessary to define a np array with fixed size
     count = 0
     for key in corners.keys():
