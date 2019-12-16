@@ -68,21 +68,14 @@ def detect_calibration_pattern_in_image(file_path, output_folder, debug=False):
     cbcd = ChessBoardCornerDetector()
     # find all corners using the detector
     corners, coverage, statistics = cbcd.detect_chess_board_corners(file_path, output_folder, debug)
-    # count all the corners, necessary to define a np array with fixed size
-    count = 0
-    for key in corners.keys():
-        count = count + len(corners[key])
-    # make objects with a length the amount of corners
-    objp = np.zeros(shape=(count, 3), dtype=np.float32)
-    imgp = np.zeros(shape=(count, 2), dtype=np.float32)
+    objp = []
+    imgp = []
     # fill up the vectors with the corners
-    count2 = 0
-    for key in corners.keys():
-        for inner_key in corners[key].keys():
-            objp[count2] = np.array([key, inner_key, 0])
-            imgp[count2] = corners[key][inner_key]
-            count2 = count2 + 1
-    return objp, imgp, coverage, statistics
+    for key, val in corners.items():
+        for inner_key, inner_val in val.items():
+            objp.append(np.array([key, inner_key, 0]))
+            imgp.append(inner_val)
+    return np.array(objp, dtype=np.float32), np.array(imgp, dtype=np.float32), coverage, statistics
 
 
 def calibrate_camera(image_size, objpoints, imgpoints, fisheye=False):
@@ -94,9 +87,9 @@ def calibrate_camera(image_size, objpoints, imgpoints, fisheye=False):
         # the fisheye function is way more demanding on the format of the input...
         objpp = []
         imgpp = []
-        for k in range(len(objpoints)):
-            objpp.append(objpoints[k].reshape(1, -1, 3))
-            imgpp.append(imgpoints[k].reshape(1, -1, 2))
+        for obj_point, image_point in zip(objpoints, imgpoints):
+            objpp.append(obj_point.reshape(1, -1, 3))
+            imgpp.append(image_point.reshape(1, -1, 2))
         calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC+cv2.fisheye.CALIB_CHECK_COND+cv2.fisheye.CALIB_FIX_SKEW
         k = np.zeros((3, 3))
         d = np.zeros((4, 1))
