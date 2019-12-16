@@ -15,10 +15,7 @@ class ChessBoardCornerDetector:
         self.centers_kdtree = None
         self.points_to_examine_queue = None
 
-    def detect_chess_board_corners(self, path_to_image, path_to_output_folder, debug=False):
-        # Load image
-        img = cv2.imread(str(path_to_image))
-        assert img is not None, "Failed to load image"
+    def detect_chess_board_corners(self, img, debug=False, *, path_to_image=None, path_to_output_folder=None):
         # Calculate corner responses
         response = self.calculate_corner_responses(img)
         # print("%8.2f, convolution" % (time.time() - t_start))
@@ -62,10 +59,7 @@ class ChessBoardCornerDetector:
         return self.calibration_points, percentage_image_covered, stats
 
         # Not necessary to output the images when we just want the statistics after undistorting
-    def make_statistics(self, path_to_image):
-        # Load image
-        img = cv2.imread(str(path_to_image))
-        assert img is not None, "Failed to load image"
+    def make_statistics(self, img):
         # Calculate corner responses
         response = self.calculate_corner_responses(img)
         # Localized normalization of responses

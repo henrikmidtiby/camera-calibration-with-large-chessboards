@@ -67,7 +67,9 @@ def detect_calibration_pattern_in_image(file_path, output_folder, debug=False):
     # define detector
     cbcd = ChessBoardCornerDetector()
     # find all corners using the detector
-    corners, coverage, statistics = cbcd.detect_chess_board_corners(file_path, output_folder, debug)
+    img = cv2.imread(str(file_path))
+    assert img is not None, "Failed to load image"
+    corners, coverage, statistics = cbcd.detect_chess_board_corners(img, debug, path_to_image=file_path, path_to_output_folder=output_folder)
     objp = []
     imgp = []
     # fill up the vectors with the corners
@@ -189,7 +191,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), undistorted_img)
             cbcd = ChessBoardCornerDetector()
             # make stats
-            statistics = cbcd.make_statistics(str(output / (fname.stem + '_undistorted' + fname.suffix)))
+            statistics = cbcd.make_statistics(undistorted_img)
             stats_after.append(statistics)
     else:
         for fname in list_input:
@@ -205,7 +207,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
             cbcd = ChessBoardCornerDetector()
             # make stats
-            statistics = cbcd.make_statistics(str(output / (fname.stem + '_undistorted' + fname.suffix)))
+            statistics = cbcd.make_statistics(dst)
             stats_after.append(statistics)
     return stats_after
 
