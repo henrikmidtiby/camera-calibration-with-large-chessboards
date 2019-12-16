@@ -204,7 +204,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             img = cv2.imread(str(fname))
             # undistort images
             h,  w = img.shape[:2]
-            map1, map2 = cv2.fisheye.initUndistortRectifyMap(mtx, dist, np.eye(3), mtx, (h, w), cv2.CV_16SC2)
+            map1, map2 = cv2.fisheye.initUndistortRectifyMap(mtx, dist, np.eye(3), mtx, (w, h), cv2.CV_16SC2)
             undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), undistorted_img)
             cbcd = ChessBoardCornerDetector()
@@ -222,7 +222,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
             # crop the image
             x, y, w, h = roi
-            #dst = dst[y:y+h, x:x+w]
+            dst = dst[y:y+h, x:x+w]
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
             cbcd = ChessBoardCornerDetector()
             # make stats
