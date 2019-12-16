@@ -1,2 +1,2 @@
 opencv_python
-sklearn
+scikit-learn
