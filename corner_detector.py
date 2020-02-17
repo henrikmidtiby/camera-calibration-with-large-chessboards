@@ -9,6 +9,8 @@ from sklearn.neighbors import KDTree
 
 class ChessBoardCornerDetector:
     def __init__(self):
+        self.distance_scale_ratio = 0.1
+        self.distance_scale = 300
         self.distance_threshold = 0.06
         self.calibration_points = None
         self.centers = None
@@ -16,11 +18,13 @@ class ChessBoardCornerDetector:
         self.points_to_examine_queue = None
 
     def detect_chess_board_corners(self, img, debug=False, *, path_to_image=None, path_to_output_folder=None):
+        # Set the distance scale to a certain fraction of the image height
+        self.distance_scale = img.shape[0] * self.distance_scale_ratio
         # Calculate corner responses
         response = self.calculate_corner_responses(img)
         # print("%8.2f, convolution" % (time.time() - t_start))
         # Localized normalization of responses
-        response_relative_to_neighbourhood = self.local_normalization(response, 511)
+        response_relative_to_neighbourhood = self.local_normalization(response, self.distance_scale)
         # print("%8.2f, relative response" % (time.time() - t_start))
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
@@ -63,7 +67,7 @@ class ChessBoardCornerDetector:
         # Calculate corner responses
         response = self.calculate_corner_responses(img)
         # Localized normalization of responses
-        response_relative_to_neighbourhood = self.local_normalization(response, 511)
+        response_relative_to_neighbourhood = self.local_normalization(response, self.distance_scale)
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
         # Locate centers of peaks
