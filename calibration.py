@@ -195,6 +195,9 @@ def write_output(list_input, output, mtx, dist, coverage_images, stats_before, s
     """
     output_path = output / 'camera_calibration_extended.txt'
     with output_path.open(mode="w") as f:
+        f.write("Time of calibration: \n")
+        x = datetime.datetime.now()
+        f.write("%s\n\n" % x.strftime("%Y-%m-%d %H:%M:%S"))
         f.write("Calibration matrix: \n")
         for line in mtx:
             f.write(str(line) + '\n')
