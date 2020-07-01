@@ -255,7 +255,7 @@ def write_calibration(list_input, output, mtx, dist, fisheye):
     Write calibration matrix and distortion coefficients to file
     """
     d = datetime.datetime.today()
-    output_path = output / ('calibration_' + d.strftime('%Y-%m-%d_%H-%M') + '.txt')
+    output_path = output / ('calibration_' + d.strftime('%Y-%m-%d_%H-%M-%S') + '.txt')
     with output_path.open(mode="w") as f:
         f.write('-----calibration-----do not edit-----\n')
         f.write("Matrix parameters (fx fy cx cy):\n")
