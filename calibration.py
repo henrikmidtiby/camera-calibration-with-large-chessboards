@@ -269,7 +269,10 @@ def write_calibration(list_input, output, mtx, dist, fisheye):
         f.write('\n\n-----info-----may be edited-----\n')
         image_info = open(str(list_input[0]), 'rb')
         tags = exifread.process_file(image_info, details=False)
-        f.write('Camera Model: ' + str(tags['Image Model']))
+        try:
+            f.write('Camera Model: ' + str(tags['Image Model']))
+        except:
+            pass
         f.write('\nDistance to calibration: ')
 
 
