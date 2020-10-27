@@ -226,10 +226,10 @@ def write_output(list_input, output, mtx, dist, coverage_images, stats_before, s
         avg_ver_before = round(ver_before / good_images, 2)
         avg_hor_after = round(hor_after / good_images, 2)
         avg_ver_after = round(ver_after / good_images, 2)
-        f.write("\nAverage horizontal distortion before: " + str(avg_hor_before).ljust(6) + "pixels from ideal line")
-        f.write("\nAverage vertical distortion before:   " + str(avg_ver_before).ljust(6) + "pixels from ideal line")
-        f.write("\nAverage horizontal distortion after:  " + str(avg_hor_after).ljust(6) + "pixels from ideal line")
-        f.write("\nAverage vertical distortion after:    " + str(avg_ver_after).ljust(6) + "pixels from ideal line")
+        f.write("\nAverage horizontal distortion before:%6.3f pixels from ideal line" % avg_hor_before)
+        f.write("\nAverage vertical distortion before:  %6.3f pixels from ideal line" % avg_ver_before)
+        f.write("\nAverage horizontal distortion after: %6.3f pixels from ideal line" % avg_hor_after)
+        f.write("\nAverage vertical distortion after:   %6.3f pixels from ideal line" % avg_ver_after)
         f.write("\nImages with a coverage lower than " + str(min_percentage_coverage) + "% are excluded from the calibration")
         f.write("\n\nExtended statistics:")
         for num, fname in enumerate(list_input):
@@ -240,14 +240,14 @@ def write_output(list_input, output, mtx, dist, coverage_images, stats_before, s
                 f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%")
             f.write("\n\t\tBefore undistorting:")
             f.write("\n\t\t\tHorizontal points : " + str(stats_before[num][0][0]))
-            f.write("\n\t\t\tAverage horizontal distortion: " + str(round(stats_before[num][0][1], 2)))
+            f.write("\n\t\t\tAverage horizontal distortion: %.3f" % stats_before[num][0][1])
             f.write("\n\t\t\tVertical points : " + str(stats_before[num][1][0]))
-            f.write("\n\t\t\tAverage vertical distortion: " + str(round(stats_before[num][1][1], 2)))
+            f.write("\n\t\t\tAverage vertical distortion: %.3f" % stats_before[num][1][1])
             f.write("\n\t\tAfter undistorting:")
             f.write("\n\t\t\tHorizontal points : " + str(stats_after[num][0][0]))
-            f.write("\n\t\t\tAverage horizontal distortion: " + str(round(stats_after[num][0][1], 2)))
+            f.write("\n\t\t\tAverage horizontal distortion: %.3f" % stats_after[num][0][1])
             f.write("\n\t\t\tVertical points : " + str(stats_after[num][1][0]))
-            f.write("\n\t\t\tAverage vertical distortion: " + str(round(stats_after[num][1][1], 2)))
+            f.write("\n\t\t\tAverage vertical distortion: %.3f" % stats_after[num][1][1])
 
 
 def write_calibration(list_input, output, mtx, dist, fisheye):
