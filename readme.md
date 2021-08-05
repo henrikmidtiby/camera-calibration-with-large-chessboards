@@ -8,17 +8,14 @@ This library consists of:
 ## Install actions
 
 ```
-python3 -m venv env
-source env/bin/activate
-pip install -r requirements.txt
+pipenv install
 ```
 
 ## Run the calibration
 
 Enter the working directory (where the scripts are placed), put check board images in the input folder and issue the following commands:
 ```
-source env/bin/activate
-python3 calibration.py --input <folder-name> --output <folder-name> --fisheye --debug --min_covarage=25 --scaling_debug=1
+pipenv run python calibration.py --input <folder-name> --output <folder-name> --fisheye --debug --min_covarage=25 --scaling_debug=1
 ```
   All parameters are optional:
 
@@ -33,8 +30,7 @@ python3 calibration.py --input <folder-name> --output <folder-name> --fisheye --
 
 Enter the working directory (where the scripts are placed), put distorted images in the input folder and issue the following commands:
 ```
-source env/bin/activate
-python3 undistort.py --input <folder-name> --output <folder-name> --calibration <calibration-file>
+pipenv run python undistort.py --input <folder-name> --output <folder-name> --calibration <calibration-file>
 ```
  All parameters are optional:
 
