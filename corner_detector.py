@@ -11,7 +11,7 @@ class ChessBoardCornerDetector:
     def __init__(self):
         self.distance_scale_ratio = 0.1
         self.distance_scale = 300
-        self.distance_threshold = 0.06
+        self.distance_threshold = 0.13
         self.calibration_points = None
         self.centers = None
         self.centers_kdtree = None
