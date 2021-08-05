@@ -298,9 +298,9 @@ class ChessBoardCornerDetector:
             for x, y in calibration_point_dict.values():
                 (x_bin, x_rem) = divmod(x, w / 10)
                 (y_bin, y_rem) = divmod(y, h / 10)
-                if x_bin is 10:
+                if x_bin == 10:
                     x_bin = 9
-                if y_bin is 10:
+                if y_bin == 10:
                     y_bin = 9
                 score[int(x_bin)][int(y_bin)] += 1
         return np.count_nonzero(score)
@@ -345,7 +345,7 @@ class ChessBoardCornerDetector:
                         d = self.shortest_distance(x, y, z[1], -1, z[0])
                         count += 1
                         som += d
-            if count is not 0:
+            if count != 0:
                 return_list.append([count, som/count])
             else:
                 return_list.append([count, 0])
