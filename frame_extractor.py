@@ -19,10 +19,19 @@ def main():
     frame_counter = 0
 
     while cap.isOpened():
-        ret, frame = cap.read()
+        ret_val, frame = cap.read()
+        if not ret_val:
+            fake_frame_skip = 1000
+            while not ret_val and fake_frame_skip > 0:
+                fake_frame_skip -= 1
+                ret_val, frame = cap.read()
+            if not ret_val:
+                raise Exception(
+                    f'Video stream ended unexpectedly. See this issue for details: https://github.com/ultralytics/yolov5/issues/2064')
+
         frame_counter += 1
         ic(frame_counter)
-        if ret is False:
+        if ret_val is False:
             break
 
         cv2.imshow("frame", frame)
