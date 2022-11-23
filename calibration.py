@@ -16,6 +16,10 @@ def main():
     parser.add_argument('-f', '--fisheye', dest='fisheye', action='store_true', help='set if camera is fisheye')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='set to debug the program and get intermediate steps')
     parser.add_argument('--scaling_debug', metavar='', type=float, default=1, help='Scaling factor for the estimation for distortion while debugging')
+    parser.add_argument('--kernel_size', metavar='', type=int, default=45, help='The size of the marker detection kernel')
+    parser.add_argument('--distance_scale', metavar='', type=int, default=300, help='The size of the neighbourhood when calculating relative responses')
+    parser.add_argument('--threshold_level_relative', metavar='', type=float, default=0.5, help='The threshold level to use for segmenting the relative marker response image')
+    parser.add_argument('--distance_threshold', metavar='', type=float, default=0.1, help='Threshold for acceptable deviation between espected location and actual location of points when assigning real world coordinates')
 
     args = parser.parse_args()
     objpoints, imgpoints, all_imgpoints = [], [], []  # Every element is the list of one image
@@ -29,7 +33,8 @@ def main():
         exit()
     # detect corners in every image
     for file_path in list_input:
-        (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(file_path, args.output, args.debug)
+        (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(file_path, args.output, args.debug, 
+                args.kernel_size, args.distance_scale, args.threshold_level_relative, args.distance_threshold)
         stats_before.append(statistics)
         coverage_images.append(coverage)
         all_imgpoints.append(imgp)
@@ -129,7 +134,8 @@ def generate_list_of_images(path_to_dir):
     return file_paths_input
 
 
-def detect_calibration_pattern_in_image(file_path, output_folder, debug=False):
+def detect_calibration_pattern_in_image(file_path, output_folder, debug, 
+        kernel_size, distance_scale, relative_threshold_level, distance_threshold):
     """
     Returns the coordinates of the detected corners in 3d object points (corresponds to the real world)
     and the corresponding coordinates in the image calibration plane
@@ -138,6 +144,10 @@ def detect_calibration_pattern_in_image(file_path, output_folder, debug=False):
         print(file_path.name)
     # define detector
     cbcd = ChessBoardCornerDetector()
+    cbcd.kernel_size = kernel_size
+    cbcd.distance_scale = distance_scale
+    cbcd.relative_threshold_level = relative_threshold_level
+    cbcd.distance_threshold = distance_threshold
     # find all corners using the detector
     img = cv2.imread(str(file_path))
     assert img is not None, "Failed to load image"
