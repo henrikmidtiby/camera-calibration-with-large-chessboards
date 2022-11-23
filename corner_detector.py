@@ -115,12 +115,11 @@ class ChessBoardCornerDetector:
             self.apply_all_rules_to_add_calibration_points(x_index, y_index)
         return self.calibration_points
 
-    @staticmethod
-    def show_detected_calibration_points(img, calibration_points):
+    def show_detected_calibration_points(self, img, calibration_points):
         canvas = img.copy()
         for x_index, temp in calibration_points.items():
             for y_index, cal_point in temp.items():
-                cv2.circle(canvas, tuple(cal_point.astype(int)), 20, (0, 255 * (y_index % 2), 255 * (x_index % 2)), 2)
+                cv2.circle(canvas, tuple(cal_point.astype(int)), self.kernel_size / 2, (0, 255 * (y_index % 2), 255 * (x_index % 2)), 2)
         return canvas 
 
     def initialize_calibration_points(self, selected_center):
