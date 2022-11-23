@@ -12,6 +12,8 @@ class ChessBoardCornerDetector:
         self.distance_scale_ratio = 0.1
         self.distance_scale = 300
         self.distance_threshold = 0.13
+        self.kernel_size = 45
+        self.relative_threshold_level = 0.5
         self.calibration_points = None
         self.centers = None
         self.centers_kdtree = None
@@ -80,9 +82,8 @@ class ChessBoardCornerDetector:
         stats = self.statistics(calibration_points)
         return stats
 
-    @staticmethod
-    def calculate_corner_responses(img):
-        locator = MarkerTracker.MarkerTracker(order=2, kernel_size=45, scale_factor=40)
+    def calculate_corner_responses(self, img):
+        locator = MarkerTracker.MarkerTracker(order=2, kernel_size=self.kernel_size, scale_factor=40)
         greyscale_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         response = locator.apply_convolution_with_complex_kernel(greyscale_image)
         return response
@@ -92,9 +93,8 @@ class ChessBoardCornerDetector:
         response_relative_to_neighbourhood = self.peaks_relative_to_neighbourhood(response, neighbourhoodsize, 0.05 * max_val)
         return response_relative_to_neighbourhood
 
-    @staticmethod
-    def threshold_responses(response_relative_to_neighbourhood):
-        _, relative_responses_thresholded = cv2.threshold(response_relative_to_neighbourhood, 0.5, 255, cv2.THRESH_BINARY)
+    def threshold_responses(self, response_relative_to_neighbourhood):
+        _, relative_responses_thresholded = cv2.threshold(response_relative_to_neighbourhood, self.relative_threshold_level, 255, cv2.THRESH_BINARY)
         return relative_responses_thresholded
 
     def locate_centers_of_peaks(self, relative_responses_thresholded):
