@@ -20,9 +20,7 @@ class ChessBoardCornerDetector:
         self.points_to_examine_queue = None
 
     def detect_chess_board_corners(self, img, debug=False, *, path_to_image=None, path_to_output_folder=None):
-        # Set the distance scale to a certain fraction of the image height
-        self.distance_scale = img.shape[0] * self.distance_scale_ratio
-        # Calculate corner responses
+        # Calculate corner response
         response = self.calculate_corner_responses(img)
         # print("%8.2f, convolution" % (time.time() - t_start))
         # Localized normalization of responses
