@@ -5,10 +5,10 @@ This tutorial assumes that you already have [installed the programme](Howto-Inst
 
 The two images can be found in the `input/testdata` directory and they looks as follows.
 `pic/GOPR0003red.jpg`
-![[pic/GOPR0003red.jpg]]
+![Image](pic/GOPR0003red.jpg)
 
 `pic/GOPR0011red.jpg`
-![[pic/GOPR0011red.jpg]]
+![Image](pic/GOPR0011red.jpg)
 
 To use all images in the `input/testdata/` to calibrate a camera, enter the following command line.
 ```
@@ -27,6 +27,7 @@ Distortion parameters (k1, k2, p1, p2, k3):
 [[-0.26280262  0.08307492 -0.00104023 -0.00029683 -0.01192781]]
 ```
 
+## Debugging output from the calibration process
 In addition to the determined camera parameters that are printed on the screen, a lot of details from the calibration process is saved in the specified output directory. This includes a text file and some images that might be helpful in tracking down suspicious calibration results.
 
 The content of the `camera_calibration_extended.txt` file is shown here.
@@ -79,3 +80,7 @@ Extended statistics:
 			Vertical points : 1128
 			Average vertical distortion: 0.629
 ```
+
+One example of the saved files is this image, which displays the detected corner locations of the chessboard. The image can be found in this location:
+`output/testdata/3_relative_response_thresholded/`
+![Image](pic/GOPR0011red_relative_responses_thresholded.png)
