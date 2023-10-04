@@ -203,7 +203,8 @@ def write_output(list_input, output, mtx, dist, coverage_images, stats_before, s
     """
     Write calibration matrix and distortion coefficients to file together with extended info
     """
-    output_path = output / 'camera_calibration_extended.txt'
+    d = datetime.datetime.today()
+    output_path = output / ('camera_calibration_extended_' + d.strftime('%Y-%m-%d_%H-%M-%S') + '.txt')
     with output_path.open(mode="w") as f:
         f.write("Time of calibration: \n")
         x = datetime.datetime.now()
