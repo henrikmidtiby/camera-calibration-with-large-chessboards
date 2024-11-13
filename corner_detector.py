@@ -5,6 +5,8 @@ import math
 import time
 import collections
 from sklearn.neighbors import KDTree
+from icecream import ic
+from peak_enumerator import PeakEnumerator
 
 
 class ChessBoardCornerDetector:
@@ -20,22 +22,26 @@ class ChessBoardCornerDetector:
         self.points_to_examine_queue = None
 
     def detect_chess_board_corners(self, img, debug=False, *, path_to_image=None, path_to_output_folder=None):
-        # Calculate corner response
-        response = self.calculate_corner_responses(img)
-        # print("%8.2f, convolution" % (time.time() - t_start))
-        # Localized normalization of responses
-        response_relative_to_neighbourhood = self.local_normalization(response, self.distance_scale)
-        # print("%8.2f, relative response" % (time.time() - t_start))
-        # Threshold responses
-        relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
-        # Locate centers of peaks
-        centers = self.locate_centers_of_peaks(relative_responses_thresholded)
-        # Select central center of mass
-        selected_center = self.select_central_peak_location(centers)
-        # Enumerate detected peaks
-        calibration_points = self.enumerate_peaks(centers, selected_center)
-        # print("%8.2f, grid mapping" % (time.time() - t_start))
-        # write output images if debug is True
+        try:
+            # Calculate corner response
+            response = self.calculate_corner_responses(img)
+            # print("%8.2f, convolution" % (time.time() - t_start))
+            # Localized normalization of responses
+            response_relative_to_neighbourhood = self.local_normalization(response, self.distance_scale)
+            # print("%8.2f, relative response" % (time.time() - t_start))
+            # Threshold responses
+            relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
+            # Locate centers of peaks
+            centers = self.locate_centers_of_peaks(relative_responses_thresholded)
+
+            pe = PeakEnumerator(centers)
+            selected_center = pe.select_central_peak_location()
+            calibration_points = pe.enumerate_peaks()
+            self.calibration_points = calibration_points
+            # print("%8.2f, grid mapping" % (time.time() - t_start))
+            # write output images if debug is True
+        except Exception as e:
+            ic(e)
         if debug:
             # making the output folders
             path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
@@ -72,10 +78,12 @@ class ChessBoardCornerDetector:
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
         # Locate centers of peaks
         centers = self.locate_centers_of_peaks(relative_responses_thresholded)
-        # Select central center of mass
-        selected_center = self.select_central_peak_location(centers)
-        # Enumerate detected peaks
-        calibration_points = self.enumerate_peaks(centers, selected_center)
+
+        pe = PeakEnumerator(centers)
+        pe.select_central_peak_location()
+        calibration_points = pe.enumerate_peaks()
+        self.calibration_points = calibration_points
+        
         # How straight are the points?
         stats = self.statistics(calibration_points)
         return stats
@@ -99,21 +107,6 @@ class ChessBoardCornerDetector:
         contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         centers = list(map(self.get_center_of_mass, contours))
         return centers
-
-    @staticmethod
-    def select_central_peak_location(centers):
-        mean_position_of_centers = np.mean(centers, axis=0)
-        central_center = np.array(sorted(list(centers), key=lambda c: np.sqrt((c[0] - mean_position_of_centers[0]) ** 2 + (c[1] - mean_position_of_centers[1]) ** 2)))
-        return central_center[0]
-
-    def enumerate_peaks(self, centers, selected_center):
-        self.centers = centers
-        self.centers_kdtree = KDTree(np.array(self.centers))
-        self.calibration_points = self.initialize_calibration_points(selected_center)
-        self.points_to_examine_queue = [(0, 0), (1, 0), (0, 1)]
-        for x_index, y_index in self.points_to_examine_queue:
-            self.apply_all_rules_to_add_calibration_points(x_index, y_index)
-        return self.calibration_points
 
     def show_detected_calibration_points(self, img, calibration_points):
         canvas = img.copy()
@@ -144,121 +137,6 @@ class ChessBoardCornerDetector:
                                  (0, 0, 255), 
                                  1)
         return canvas 
-
-    def initialize_calibration_points(self, selected_center):
-        closest_neighbour, _ = self.locate_nearest_neighbour(selected_center)
-        direction = selected_center - closest_neighbour
-        rotation_matrix = np.array([[0, 1], [-1, 0]])
-        hat_vector = np.matmul(direction, rotation_matrix)
-        direction_b_neighbour, _ = self.locate_nearest_neighbour(selected_center + hat_vector, minimum_distance_from_selected_center=-1)
-        calibration_points = collections.defaultdict(dict)
-        calibration_points[0][0] = selected_center
-        calibration_points[1][0] = closest_neighbour
-        calibration_points[0][1] = direction_b_neighbour
-
-        return calibration_points
-
-    def apply_all_rules_to_add_calibration_points(self, x_index, y_index):
-        self.rule_one(x_index, y_index)
-        self.rule_two(x_index, y_index)
-        self.rule_three(x_index, y_index)
-        self.rule_four(x_index, y_index)
-        self.rule_five(x_index, y_index)
-
-    def rule_three(self, x_index, y_index):
-        try:
-            # Ensure that we don't overwrite already located
-            # points.
-            if y_index + 1 in self.calibration_points[x_index]:
-                return
-            position_one = self.calibration_points[x_index - 1][y_index]
-            position_two = self.calibration_points[x_index - 1][y_index + 1]
-            position_three = self.calibration_points[x_index][y_index]
-            predicted_location = position_two + position_three - position_one
-            location, distance = self.locate_nearest_neighbour(predicted_location,
-                                                               minimum_distance_from_selected_center=-1)
-            reference_distance = np.linalg.norm(position_three - position_one)
-            if distance / reference_distance < self.distance_threshold:
-                self.calibration_points[x_index][y_index + 1] = location
-                self.points_to_examine_queue.append((x_index, y_index + 1))
-        except KeyError:
-            pass
-
-    def rule_two(self, x_index, y_index):
-        try:
-            if y_index in self.calibration_points[x_index + 1]:
-                return
-            position_one = self.calibration_points[x_index - 1][y_index]
-            position_two = self.calibration_points[x_index][y_index]
-            predicted_location = 2 * position_two - position_one
-            location, distance = self.locate_nearest_neighbour(predicted_location,
-                                                               minimum_distance_from_selected_center=-1)
-            reference_distance = np.linalg.norm(position_two - position_one)
-            if distance / reference_distance < self.distance_threshold:
-                self.calibration_points[x_index + 1][y_index] = location
-                self.points_to_examine_queue.append((x_index + 1, y_index))
-        except KeyError:
-            pass
-
-    def rule_one(self, x_index, y_index):
-        try:
-            # Ensure that we don't overwrite already located
-            # points.
-            if y_index + 1 in self.calibration_points[x_index]:
-                return
-            position_one = self.calibration_points[x_index][y_index]
-            position_two = self.calibration_points[x_index][y_index - 1]
-            predicted_location = 2 * position_one - position_two
-            location, distance = self.locate_nearest_neighbour(predicted_location,
-                                                               minimum_distance_from_selected_center=-1)
-            reference_distance = np.linalg.norm(position_two - position_one)
-            if distance / reference_distance < self.distance_threshold:
-                self.calibration_points[x_index][y_index + 1] = location
-                self.points_to_examine_queue.append((x_index, y_index + 1))
-        except KeyError:
-            pass
-
-    def rule_four(self, x_index, y_index):
-        try:
-            # Ensure that we don't overwrite already located
-            # points.
-            if y_index - 1 in self.calibration_points[x_index]:
-                return
-            position_one = self.calibration_points[x_index][y_index]
-            position_two = self.calibration_points[x_index][y_index + 1]
-            predicted_location = 2 * position_one - position_two
-            location, distance = self.locate_nearest_neighbour(predicted_location,
-                                                               minimum_distance_from_selected_center=-1)
-            reference_distance = np.linalg.norm(position_two - position_one)
-            if distance / reference_distance < self.distance_threshold:
-                self.calibration_points[x_index][y_index - 1] = location
-                self.points_to_examine_queue.append((x_index, y_index - 1))
-        except KeyError:
-            pass
-
-    def rule_five(self, x_index, y_index):
-        try:
-            if y_index in self.calibration_points[x_index - 1]:
-                return
-
-            position_one = self.calibration_points[x_index + 1][y_index]
-            position_two = self.calibration_points[x_index][y_index]
-            predicted_location = 2 * position_two - position_one
-            location, distance = self.locate_nearest_neighbour(predicted_location, minimum_distance_from_selected_center=-1)
-            reference_distance = np.linalg.norm(position_two - position_one)
-            if distance / reference_distance < self.distance_threshold:
-                self.calibration_points[x_index - 1][y_index] = location
-                self.points_to_examine_queue.append((x_index - 1, y_index))
-        except KeyError:
-            pass
-
-    def locate_nearest_neighbour(self, selected_center, minimum_distance_from_selected_center=0):
-        reshaped_query_array = np.array(selected_center).reshape(1, -1)
-        (distances, indices) = self.centers_kdtree.query(reshaped_query_array, 2)
-        if distances[0][0] <= minimum_distance_from_selected_center:
-            return self.centers[indices[0][1]], distances[0][1]
-        else:
-            return self.centers[indices[0][0]], distances[0][0]
 
     @staticmethod
     def distance_to_ref(ref_point):
