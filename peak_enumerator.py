@@ -134,7 +134,6 @@ class PeakEnumerator():
             location, distance = self.locate_nearest_neighbour(predicted_location,
                                                                minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
-            ic(reference_distance)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index - 1] = location
                 self.points_to_examine_queue.append((x_index, y_index - 1))
