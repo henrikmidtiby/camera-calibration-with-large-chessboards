@@ -27,9 +27,8 @@ class PeakEnumerator():
     def enumerate_peaks(self):
         self.centers_kdtree = KDTree(np.array(self.centers))
         self.calibration_points = self.initialize_calibration_points(self.central_peak_location)
-        self.points_to_examine_queue = [(0, 0), (1, 0), (0, 1)]
-        for x_index, y_index in self.points_to_examine_queue:
-            self.apply_all_rules_to_add_calibration_points(x_index, y_index)
+        self.build_examination_queue()
+        self.analyse_elements_in_queue()
         return self.calibration_points
 
 
@@ -45,6 +44,18 @@ class PeakEnumerator():
         calibration_points[0][1] = direction_b_neighbour
 
         return calibration_points
+
+
+    def build_examination_queue(self):
+        self.points_to_examine_queue = []
+        for x_key, value in self.calibration_points.items():
+            for y_key, _ in value.items():
+                self.points_to_examine_queue.append((x_key, y_key))
+
+
+    def analyse_elements_in_queue(self):
+        for x_index, y_index in self.points_to_examine_queue:
+            self.apply_all_rules_to_add_calibration_points(x_index, y_index)
 
 
     def apply_all_rules_to_add_calibration_points(self, x_index, y_index):
