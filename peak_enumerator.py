@@ -89,9 +89,9 @@ class PeakEnumerator():
         try:
             if y_index in self.calibration_points[x_index + 1]:
                 return
-            position_one = self.calibration_points[x_index - 1][y_index]
-            position_two = self.calibration_points[x_index][y_index]
-            predicted_location = 2 * position_two - position_one
+            position_one = self.calibration_points[x_index][y_index]
+            position_two = self.calibration_points[x_index - 1][y_index]
+            predicted_location = 2 * position_one - position_two
             location, distance = self.locate_nearest_neighbour(predicted_location,
                                                                minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
@@ -108,13 +108,13 @@ class PeakEnumerator():
             # points.
             if y_index + 1 in self.calibration_points[x_index]:
                 return
-            position_one = self.calibration_points[x_index - 1][y_index]
-            position_two = self.calibration_points[x_index - 1][y_index + 1]
-            position_three = self.calibration_points[x_index][y_index]
-            predicted_location = position_two + position_three - position_one
+            position_one = self.calibration_points[x_index][y_index]
+            position_two = self.calibration_points[x_index - 1][y_index]
+            position_three = self.calibration_points[x_index - 1][y_index + 1]
+            predicted_location = position_three + position_one - position_two
             location, distance = self.locate_nearest_neighbour(predicted_location,
                                                                minimum_distance_from_selected_center=-1)
-            reference_distance = np.linalg.norm(position_three - position_one)
+            reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
                 self.calibration_points[x_index][y_index + 1] = location
                 self.points_to_examine_queue.append((x_index, y_index + 1))
@@ -147,9 +147,9 @@ class PeakEnumerator():
             if y_index in self.calibration_points[x_index - 1]:
                 return
 
-            position_one = self.calibration_points[x_index + 1][y_index]
-            position_two = self.calibration_points[x_index][y_index]
-            predicted_location = 2 * position_two - position_one
+            position_one = self.calibration_points[x_index][y_index]
+            position_two = self.calibration_points[x_index + 1][y_index]
+            predicted_location = 2 * position_one - position_two
             location, distance = self.locate_nearest_neighbour(predicted_location, minimum_distance_from_selected_center=-1)
             reference_distance = np.linalg.norm(position_two - position_one)
             if distance / reference_distance < self.distance_threshold:
