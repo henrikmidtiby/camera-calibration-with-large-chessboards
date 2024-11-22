@@ -48,11 +48,12 @@ class PeakEnumerator():
 
 
     def apply_all_rules_to_add_calibration_points(self, x_index, y_index):
-        self.rule_one(x_index, y_index)
-        self.rule_two(x_index, y_index)
-        self.rule_three(x_index, y_index)
-        self.rule_four(x_index, y_index)
-        self.rule_five(x_index, y_index)
+        self.rule_one(x_index, y_index) # Grow in +y direction
+        self.rule_two(x_index, y_index) # Grow in +x direction
+        self.rule_three(x_index, y_index) # Grow in +y direction, based on three points
+        self.rule_four(x_index, y_index) # Grow in -y direction
+        self.rule_five(x_index, y_index) # Grow in -x direction
+
 
     def rule_one(self, x_index, y_index):
         try:
