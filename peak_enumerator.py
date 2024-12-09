@@ -74,9 +74,12 @@ class PeakEnumerator():
         p11_expected_position = p01 + p10 - p00
         p11, distance = self.locate_nearest_neighbour(p11_expected_position)
 
-        if distance / reference_distance < 0.2:
+        error_ratio = distance / reference_distance
+        if error_ratio < 0.4:
             self.calibration_points[1][1] = p11
         else:
+            ic(error_ratio)
+            raise Exception("enumerate_central_square failed")
             pass
             # Throw error        
 
