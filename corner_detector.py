@@ -239,6 +239,20 @@ class ChessBoardCornerDetector:
     def image_coverage(calibration_points, img):
         h = img.shape[0]
         w = img.shape[1]
+
+        # Calculate coverage of detected calibration as
+        # a fraction of the image area.
+        points = []
+        for calibration_point_dict in calibration_points.values():
+            for x, y in calibration_point_dict.values():
+                points.append((x, y))
+        points = np.array(points).reshape(-1, 1, 2).astype(np.float32)
+        convexHull = cv2.convexHull(points)
+        convexHullArea = cv2.contourArea(convexHull)
+        imageArea = h * w
+        coverage_ratio = convexHullArea / imageArea
+        #ic(coverage_ratio)
+
         score = np.zeros((10, 10))
         for calibration_point_dict in calibration_points.values():
             for x, y in calibration_point_dict.values():
@@ -249,6 +263,7 @@ class ChessBoardCornerDetector:
                 if y_bin == 10:
                     y_bin = 9
                 score[int(x_bin)][int(y_bin)] += 1
+
         return np.count_nonzero(score)
 
     @staticmethod
