@@ -48,7 +48,7 @@ def main():
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     matrix, distortion = calibrate_camera(gray.shape[::-1], objpoints, imgpoints, args.fisheye)
     # undistort images
-    path_to_undistorted_images = args.output / '5_undistorted_images'
+    path_to_undistorted_images = args.output / '6_undistorted_images'
     path_to_undistorted_images.mkdir(parents=False, exist_ok=True)
     stats_after = undistort_images(list_input, path_to_undistorted_images, matrix, distortion, args.fisheye)
     # print output to screen and file
@@ -56,7 +56,7 @@ def main():
     write_output(list_input, args.output, matrix, distortion, coverage_images, stats_before, stats_after, args.min_coverage, args.fisheye)
     write_calibration(list_input, args.output, matrix, distortion, args.fisheye)
     if args.debug:
-        path_to_estimation_distortion = args.output / '6_estimation_distortion'
+        path_to_estimation_distortion = args.output / '7_estimation_distortion'
         path_to_estimation_distortion.mkdir(parents=False, exist_ok=True)
         show_estimation_distortion(list_input, all_imgpoints, matrix, distortion, args.fisheye, path_to_estimation_distortion, args.scaling_debug)
 
