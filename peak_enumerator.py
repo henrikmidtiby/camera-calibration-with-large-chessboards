@@ -37,7 +37,23 @@ class PeakEnumerator():
         direction = selected_center - closest_neighbour
         rotation_matrix = np.array([[0, 1], [-1, 0]])
         hat_vector = np.matmul(direction, rotation_matrix)
-        direction_b_neighbour, _ = self.locate_nearest_neighbour(selected_center + hat_vector, minimum_distance_from_selected_center=-1)
+        # Check if selected_center and direction_b_neighbour are identical.
+        # If that is the case, search for a point further away.
+        ratio = 1
+        while True:
+            direction_b_neighbour, _ = self.locate_nearest_neighbour(selected_center + hat_vector * ratio, minimum_distance_from_selected_center=-1)
+            distance = np.linalg.norm(direction_b_neighbour - selected_center)
+            if distance < 1:
+                ratio = ratio + 0.3
+            else:
+                break
+
+            if ratio > 2.5:
+                ic(ratio)
+                ic(selected_center)
+                ic(closest_neighbour)
+                ic(direction_b_neighbour)
+                raise Exception("Square locator failed")
         calibration_points = collections.defaultdict(dict)
         calibration_points[0][0] = selected_center
         calibration_points[1][0] = closest_neighbour
