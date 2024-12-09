@@ -309,13 +309,8 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
         for fname in list_input:
             # read image
             img = cv2.imread(str(fname))
-            # undistort images
-            h,  w = img.shape[:2]
-            newcamera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
-            dst = cv2.undistort(img, mtx, dist, None, newcamera_mtx)
-            # crop the image
-            x, y, w, h = roi
-            dst = dst[y:y+h, x:x+w]
+            # undistort images, but keep the same camera matrix
+            dst = cv2.undistort(img, mtx, dist, None, mtx)
             try: 
                 cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
                 cbcd = ChessBoardCornerDetector()
