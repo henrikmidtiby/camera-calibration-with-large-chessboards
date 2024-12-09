@@ -138,11 +138,12 @@ class ChessBoardCornerDetector:
         centers = []
         for contour in contours:
             val = self.get_center_of_mass(contour)
+
             area = cv2.contourArea(contour)
             if area > 0:
                 perimeter = cv2.arcLength(contour, closed = True)
-                measure = perimeter * perimeter / (area * 4 * np.pi)
-                if measure < 1.5:
+                measure = 4 * np.pi * area / (perimeter * perimeter)
+                if measure > 0.6:
                     centers.append(val)
         return centers
 
