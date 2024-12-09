@@ -43,7 +43,7 @@ class ChessBoardCornerDetector:
         except Exception as e:
             ic(e)
         if debug:
-            # making the output folders
+            # Make output folders
             path_to_output_response_folder = path_to_output_folder / '1_response'
             path_to_output_response_folder.mkdir(parents=False, exist_ok=True)
             path_to_output_response_neighbourhood_folder = path_to_output_folder / '2_respond_relative_to_neighbourhood'
@@ -52,7 +52,7 @@ class ChessBoardCornerDetector:
             path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
             path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
             path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
-            
+            # Write debug images
             path_response_1 = path_to_output_response_folder / (path_to_image.stem + '_response.png')
             cv2.imwrite(str(path_response_1), response)
             path_response_2 = path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
