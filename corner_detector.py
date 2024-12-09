@@ -12,7 +12,7 @@ from peak_enumerator import PeakEnumerator
 class ChessBoardCornerDetector:
     def __init__(self):
         self.distance_scale_ratio = 0.1
-        self.distance_scale = 300
+        self.distance_scale = 50
         self.distance_threshold = 0.13
         self.kernel_size = 45
         self.relative_threshold_level = 0.5

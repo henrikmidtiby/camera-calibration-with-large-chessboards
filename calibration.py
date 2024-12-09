@@ -6,6 +6,7 @@ from corner_detector import ChessBoardCornerDetector
 import math
 import datetime
 import exifread
+from icecream import ic
 
 
 def main():
