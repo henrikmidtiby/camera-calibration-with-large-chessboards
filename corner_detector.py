@@ -119,8 +119,8 @@ class ChessBoardCornerDetector:
                     if y_index + 1 in self.calibration_points[x_index + 1]:
                         other_corner = self.calibration_points[x_index + 1][y_index + 1]
                         alpha = 0.3
-                        p1 = alpha * cal_point + (1-alpha) * other_corner;
-                        p2 = (1 - alpha) * cal_point + alpha * other_corner;
+                        p1 = alpha * cal_point + (1-alpha) * other_corner
+                        p2 = (1 - alpha) * cal_point + alpha * other_corner
                         cv2.line(canvas, 
                                  tuple(p1.astype(int)), 
                                  tuple(p2.astype(int)), 
@@ -130,8 +130,8 @@ class ChessBoardCornerDetector:
                     if y_index - 1 in self.calibration_points[x_index + 1]:
                         other_corner = self.calibration_points[x_index + 1][y_index - 1]
                         alpha = 0.3
-                        p1 = alpha * cal_point + (1-alpha) * other_corner;
-                        p2 = (1 - alpha) * cal_point + alpha * other_corner;
+                        p1 = alpha * cal_point + (1-alpha) * other_corner
+                        p2 = (1 - alpha) * cal_point + alpha * other_corner
                         cv2.line(canvas, 
                                  tuple(p1.astype(int)), 
                                  tuple(p2.astype(int)), 
