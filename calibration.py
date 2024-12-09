@@ -316,11 +316,14 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             # crop the image
             x, y, w, h = roi
             dst = dst[y:y+h, x:x+w]
-            cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
-            cbcd = ChessBoardCornerDetector()
-            # make stats
-            statistics = cbcd.make_statistics(dst)
-            stats_after.append(statistics)
+            try: 
+                cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
+                cbcd = ChessBoardCornerDetector()
+                # make stats
+                statistics = cbcd.make_statistics(dst)
+                stats_after.append(statistics)
+            except Exception as e:
+                ic(Exception)
     return stats_after
 
 
