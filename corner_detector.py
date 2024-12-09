@@ -135,7 +135,15 @@ class ChessBoardCornerDetector:
 
     def locate_centers_of_peaks(self, relative_responses_thresholded):
         contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        centers = list(map(self.get_center_of_mass, contours))
+        centers = []
+        for contour in contours:
+            val = self.get_center_of_mass(contour)
+            area = cv2.contourArea(contour)
+            if area > 0:
+                perimeter = cv2.arcLength(contour, closed = True)
+                measure = perimeter * perimeter / (area * 4 * np.pi)
+                if measure < 1.5:
+                    centers.append(val)
         return centers
 
     def show_detected_points(self, img, points):
