@@ -50,7 +50,9 @@ class ChessBoardCornerDetector:
             path_to_output_response_neighbourhood_folder.mkdir(parents=False, exist_ok=True)
             path_to_output_response_threshold_folder = path_to_output_folder / '3_relative_response_thresholded'
             path_to_output_response_threshold_folder.mkdir(parents=False, exist_ok=True)
-            path_to_output_local_maxima_folder = path_to_output_folder / '4_local_maxima'
+            path_to_output_located_centers_folder = path_to_output_folder / '4_located_centers'
+            path_to_output_located_centers_folder.mkdir(parents=False, exist_ok=True)
+            path_to_output_local_maxima_folder = path_to_output_folder / '5_local_maxima'
             path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
             # Write debug images
             path_response_1 = path_to_output_response_folder / (path_to_image.stem + '_response.png')
@@ -59,6 +61,9 @@ class ChessBoardCornerDetector:
             cv2.imwrite(str(path_response_2), response_relative_to_neighbourhood * 255)
             path_response_3 = path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
             cv2.imwrite(str(path_response_3), relative_responses_thresholded)
+            located_centers = self.show_detected_points(img, centers)
+            path_response_4 = path_to_output_located_centers_folder / (path_to_image.stem + '_located_centers.png')
+            cv2.imwrite(str(path_response_4), located_centers)
             canvas = self.show_detected_calibration_points(img, self.calibration_points)
             cv2.circle(canvas, tuple(selected_center.astype(int)), 10, (0, 0, 255), -1)
             path_local_max = path_to_output_local_maxima_folder / (path_to_image.stem + '_local_maxima.png')
@@ -108,6 +113,15 @@ class ChessBoardCornerDetector:
         contours, t1 = cv2.findContours(np.uint8(relative_responses_thresholded), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         centers = list(map(self.get_center_of_mass, contours))
         return centers
+
+    def show_detected_points(self, img, points):
+        canvas = img.copy()
+        for point in points:
+            x = int(point[0])
+            y = int(point[1])
+            cv2.circle(canvas, (x, y), int(self.kernel_size / 2), (0, 0, 255), 2)
+
+        return canvas
 
     def show_detected_calibration_points(self, img, calibration_points):
         canvas = img.copy()
