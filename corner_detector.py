@@ -75,21 +75,45 @@ class ChessBoardCornerDetector:
         return self.calibration_points, percentage_image_covered, stats
 
         # Not necessary to output the images when we just want the statistics after undistorting
-    def make_statistics(self, img):
+    def make_statistics(self, img, debug, output, fname):
         # Calculate corner responses
         response = self.calculate_corner_responses(img)
+        if debug:
+            path_to_output_undistorted_corner_response = output.parent / '91_undistorted_corner_response'
+            path_to_output_undistorted_corner_response.mkdir(parents=False, exist_ok=True)
+            cv2.imwrite(path_to_output_undistorted_corner_response / (fname.stem + '.png'), response)
+
         # Localized normalization of responses
         response_relative_to_neighbourhood = self.local_normalization(response, self.distance_scale)
+        if debug:
+            path_to_output_undistorted_response = output.parent / '92_undistorted_relative_response'
+            path_to_output_undistorted_response.mkdir(parents=False, exist_ok=True)
+            cv2.imwrite(path_to_output_undistorted_response / (fname.stem + '.png'), response_relative_to_neighbourhood * 255)
+
         # Threshold responses
         relative_responses_thresholded = self.threshold_responses(response_relative_to_neighbourhood)
+        if debug:
+            path_to_output_undistorted_thresholded = output.parent / '93_undistorted_thresholded'
+            path_to_output_undistorted_thresholded.mkdir(parents=False, exist_ok=True)
+            cv2.imwrite(path_to_output_undistorted_thresholded / (fname.stem + '.png'), relative_responses_thresholded)
+
         # Locate centers of peaks
         centers = self.locate_centers_of_peaks(relative_responses_thresholded)
+        centers = sorted(centers, key = lambda item: item[0])
+        #ic(centers)
 
         pe = PeakEnumerator(centers)
-        pe.select_central_peak_location()
+        selected_center = pe.select_central_peak_location()
         calibration_points = pe.enumerate_peaks()
         self.calibration_points = calibration_points
-        
+
+        if debug:
+            canvas = self.show_detected_calibration_points(img, self.calibration_points)
+            cv2.circle(canvas, tuple(selected_center.astype(int)), 10, (0, 0, 255), -1)
+            path_to_output_undistorted_calibration_points = output.parent / '95_undistorted_calibration_points'
+            path_to_output_undistorted_calibration_points.mkdir(parents=False, exist_ok=True)
+            cv2.imwrite(path_to_output_undistorted_calibration_points / (fname.stem + '.png'), canvas)
+
         # How straight are the points?
         stats = self.statistics(calibration_points)
         return stats

@@ -50,7 +50,7 @@ def main():
     # undistort images
     path_to_undistorted_images = args.output / '6_undistorted_images'
     path_to_undistorted_images.mkdir(parents=False, exist_ok=True)
-    stats_after = undistort_images(list_input, path_to_undistorted_images, matrix, distortion, args.fisheye)
+    stats_after = undistort_images(list_input, path_to_undistorted_images, matrix, distortion, args.fisheye, args.debug)
     # print output to screen and file
     print_output(matrix, distortion, args.fisheye)
     write_output(list_input, args.output, matrix, distortion, coverage_images, stats_before, stats_after, args.min_coverage, args.fisheye)
@@ -287,7 +287,7 @@ def write_calibration(list_input, output, mtx, dist, fisheye):
         f.write('\nDistance to calibration: ')
 
 
-def undistort_images(list_input, output, mtx, dist, fisheye):
+def undistort_images(list_input, output, mtx, dist, fisheye, debug):
     """
     Undistorts all images in the input folder and places them in the output folder
     """
@@ -303,7 +303,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
             cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), undistorted_img)
             cbcd = ChessBoardCornerDetector()
             # make stats
-            statistics = cbcd.make_statistics(undistorted_img)
+            statistics = cbcd.make_statistics(undistorted_img, debug, output, fname)
             stats_after.append(statistics)
     else:
         for fname in list_input:
@@ -315,7 +315,7 @@ def undistort_images(list_input, output, mtx, dist, fisheye):
                 cv2.imwrite(str(output / (fname.stem + '_undistorted' + fname.suffix)), dst)
                 cbcd = ChessBoardCornerDetector()
                 # make stats
-                statistics = cbcd.make_statistics(dst)
+                statistics = cbcd.make_statistics(dst, debug, output, fname)
                 stats_after.append(statistics)
             except Exception as e:
                 ic(Exception)
