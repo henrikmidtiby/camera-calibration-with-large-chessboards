@@ -56,7 +56,7 @@ class ChessBoardCornerDetector:
             path_to_output_local_maxima_folder.mkdir(parents=False, exist_ok=True)
             # Write debug images
             path_response_1 = path_to_output_response_folder / (path_to_image.stem + '_response.png')
-            cv2.imwrite(str(path_response_1), response)
+            cv2.imwrite(str(path_response_1), response * 255 / np.max(response[:]))
             path_response_2 = path_to_output_response_neighbourhood_folder / (path_to_image.stem + '_response_relative_to_neighbourhood.png')
             cv2.imwrite(str(path_response_2), response_relative_to_neighbourhood * 255)
             path_response_3 = path_to_output_response_threshold_folder / (path_to_image.stem + '_relative_responses_thresholded.png')
