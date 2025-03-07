@@ -17,8 +17,8 @@ def main():
     parser.add_argument('-f', '--fisheye', dest='fisheye', action='store_true', help='set if camera is fisheye')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='set to debug the program and get intermediate steps')
     parser.add_argument('--scaling_debug', metavar='', type=float, default=1, help='Scaling factor for the estimation for distortion while debugging (default 1)')
-    parser.add_argument('--kernel_size', metavar='', type=int, default=45, help='The size of the marker detection kernel (default 45)')
-    parser.add_argument('--distance_scale', metavar='', type=int, default=100, help='The size of the neighbourhood when calculating relative responses (default 100)')
+    parser.add_argument('--kernel_size', metavar='', type=int, default=45, help='The size of the marker detection kernel (default 45). Should be smaller than the distance between two chessboard corners.')
+    parser.add_argument('--distance_scale', metavar='', type=int, default=100, help='The size of the neighbourhood when calculating relative responses (default 100). Should be larger than the distance between two chessboard corners.')
     parser.add_argument('--threshold_level_relative', metavar='', type=float, default=0.5, help='The threshold level to use for segmenting the relative marker response image (default 0.5)')
     parser.add_argument('--distance_threshold', metavar='', type=float, default=0.1, help='Threshold for acceptable deviation between espected location and actual location of points when assigning real world coordinates (default 0.1)')
 
