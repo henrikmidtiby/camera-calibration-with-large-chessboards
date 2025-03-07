@@ -224,14 +224,17 @@ def write_output(list_input, output, mtx, dist, coverage_images, stats_before, s
         f.write("Image".ljust(25) + "Coverage".ljust(12) + "Avg distor bef".ljust(17) + "Avg distor aft\n")
         for num, fname in enumerate(list_input):
             if coverage_images[num] >= min_percentage_coverage:
-                avg_before = round(stats_before[num][0][1] + stats_before[num][1][1] / 2, 2)
-                avg_after = round(stats_after[num][0][1] + stats_after[num][1][1] / 2, 2)
-                hor_before += round(stats_before[num][0][1], 2)
-                ver_before += round(stats_before[num][1][1], 2)
-                hor_after += round(stats_after[num][0][1], 2)
-                ver_after += round(stats_after[num][1][1], 2)
-                f.write(str(fname.name).ljust(25) + (str(coverage_images[num]).rjust(3) + '%').ljust(12) + str(avg_before).ljust(17) + str(avg_after) + '\n')
-                good_images += 1
+                try:
+                    avg_before = round(stats_before[num][0][1] + stats_before[num][1][1] / 2, 2)
+                    avg_after = round(stats_after[num][0][1] + stats_after[num][1][1] / 2, 2)
+                    hor_before += round(stats_before[num][0][1], 2)
+                    ver_before += round(stats_before[num][1][1], 2)
+                    hor_after += round(stats_after[num][0][1], 2)
+                    ver_after += round(stats_after[num][1][1], 2)
+                    f.write(str(fname.name).ljust(25) + (str(coverage_images[num]).rjust(3) + '%').ljust(12) + str(avg_before).ljust(17) + str(avg_after) + '\n')
+                    good_images += 1
+                except Exception as e:
+                    print(e)
             else:
                 f.write(str(fname.name).ljust(25) + (str(coverage_images[num]).rjust(3) + '%').ljust(12) + " -----EXCLUDED-----\n")
         avg_hor_before = round(hor_before / good_images, 2)
@@ -245,21 +248,24 @@ def write_output(list_input, output, mtx, dist, coverage_images, stats_before, s
         f.write("\nImages with a coverage lower than " + str(min_percentage_coverage) + "% are excluded from the calibration")
         f.write("\n\nExtended statistics:")
         for num, fname in enumerate(list_input):
-            f.write("\n\t" + str(fname.name))
-            if coverage_images[num] < min_percentage_coverage:
-                f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%  -> EXCLUDED")
-            else:
-                f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%")
-            f.write("\n\t\tBefore undistorting:")
-            f.write("\n\t\t\tHorizontal points : " + str(stats_before[num][0][0]))
-            f.write("\n\t\t\tAverage horizontal distortion: %.3f" % stats_before[num][0][1])
-            f.write("\n\t\t\tVertical points : " + str(stats_before[num][1][0]))
-            f.write("\n\t\t\tAverage vertical distortion: %.3f" % stats_before[num][1][1])
-            f.write("\n\t\tAfter undistorting:")
-            f.write("\n\t\t\tHorizontal points : " + str(stats_after[num][0][0]))
-            f.write("\n\t\t\tAverage horizontal distortion: %.3f" % stats_after[num][0][1])
-            f.write("\n\t\t\tVertical points : " + str(stats_after[num][1][0]))
-            f.write("\n\t\t\tAverage vertical distortion: %.3f" % stats_after[num][1][1])
+            try:
+                f.write("\n\t" + str(fname.name))
+                if coverage_images[num] < min_percentage_coverage:
+                    f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%  -> EXCLUDED")
+                else:
+                    f.write("\n\tPercentage of image covered with points: " + str(coverage_images[num]) + "%")
+                f.write("\n\t\tBefore undistorting:")
+                f.write("\n\t\t\tHorizontal points : " + str(stats_before[num][0][0]))
+                f.write("\n\t\t\tAverage horizontal distortion: %.3f" % stats_before[num][0][1])
+                f.write("\n\t\t\tVertical points : " + str(stats_before[num][1][0]))
+                f.write("\n\t\t\tAverage vertical distortion: %.3f" % stats_before[num][1][1])
+                f.write("\n\t\tAfter undistorting:")
+                f.write("\n\t\t\tHorizontal points : " + str(stats_after[num][0][0]))
+                f.write("\n\t\t\tAverage horizontal distortion: %.3f" % stats_after[num][0][1])
+                f.write("\n\t\t\tVertical points : " + str(stats_after[num][1][0]))
+                f.write("\n\t\t\tAverage vertical distortion: %.3f" % stats_after[num][1][1])
+            except Exception as e:
+                print(e)
 
 
 def write_calibration(list_input, output, mtx, dist, fisheye):
