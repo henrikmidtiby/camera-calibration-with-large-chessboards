@@ -5,9 +5,13 @@ from icecream import ic
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Extract frames from a video')
-    parser.add_argument('input', type=lambda p: Path(p).absolute(), help='input video file')
-    parser.add_argument('output', type=lambda p: Path(p).absolute(), help='output directory')
+    parser = argparse.ArgumentParser(description="Extract frames from a video")
+    parser.add_argument(
+        "input", type=lambda p: Path(p).absolute(), help="input video file"
+    )
+    parser.add_argument(
+        "output", type=lambda p: Path(p).absolute(), help="output directory"
+    )
 
     args = parser.parse_args()
 
@@ -27,7 +31,8 @@ def main():
                 ret_val, frame = cap.read()
             if not ret_val:
                 raise Exception(
-                    f'Video stream ended unexpectedly. See this issue for details: https://github.com/ultralytics/yolov5/issues/2064')
+                    f"Video stream ended unexpectedly. See this issue for details: https://github.com/ultralytics/yolov5/issues/2064"
+                )
 
         frame_counter += 1
         ic(frame_counter)
@@ -35,15 +40,15 @@ def main():
             break
 
         cv2.imshow("frame", frame)
-        
+
         k = cv2.waitKey(30)
-        if k == ord('q'):
+        if k == ord("q"):
             break
-        if k == ord('s'):
+        if k == ord("s"):
             filename = "%s/frame%03d.jpg" % (args.output, counter)
             counter += 1
             cv2.imwrite(filename, frame)
-            print(f"Saved frame { frame_counter } to the file { filename }")
+            print(f"Saved frame {frame_counter} to the file {filename}")
 
 
 main()
