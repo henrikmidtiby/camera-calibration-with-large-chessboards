@@ -102,27 +102,30 @@ def main():
         exit()
     # detect corners in every image
     for file_path in list_input:
-        (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(
-            file_path,
-            args.output,
-            args.debug,
-            args.kernel_size,
-            args.distance_scale,
-            args.threshold_level_relative,
-            args.distance_threshold,
-        )
-        stats_before.append(statistics)
-        coverage_images.append(coverage)
-        all_imgpoints.append(imgp)
-        if coverage < args.min_coverage:
-            print(
-                "ERROR: Less than "
-                + str(args.min_coverage)
-                + "% is covered with points, excluding from calibration"
+        try:
+            (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(
+                file_path,
+                args.output,
+                args.debug,
+                args.kernel_size,
+                args.distance_scale,
+                args.threshold_level_relative,
+                args.distance_threshold,
             )
-        else:
-            objpoints.append(objp)
-            imgpoints.append(imgp)
+            stats_before.append(statistics)
+            coverage_images.append(coverage)
+            all_imgpoints.append(imgp)
+            if coverage < args.min_coverage:
+                print(
+                    "ERROR: Less than "
+                    + str(args.min_coverage)
+                    + "% is covered with points, excluding from calibration"
+                )
+            else:
+                objpoints.append(objp)
+                imgpoints.append(imgp)
+        except Exception as e:
+            ic(e)
     # calibrate camera
     img = cv2.imread(str(list_input[0]))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
