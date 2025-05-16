@@ -75,7 +75,7 @@ class ChessBoardCornerDetector:
             path_response_1 = path_to_output_response_folder / (
                 path_to_image.stem + "_response.png"
             )
-            cv2.imwrite(str(path_response_1), response * 255 / np.max(response[:]))
+            cv2.imwrite(str(path_response_1), response)
             path_response_2 = path_to_output_response_neighbourhood_folder / (
                 path_to_image.stem + "_response_relative_to_neighbourhood.png"
             )
