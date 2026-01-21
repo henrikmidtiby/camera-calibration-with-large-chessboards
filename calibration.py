@@ -156,7 +156,8 @@ def main():
         args.min_coverage,
         args.fisheye,
     )
-    write_calibration(list_input, args.output, matrix, distortion, args.fisheye)
+    write_calibration_details(list_input, args.output, matrix, distortion, args.fisheye)
+    write_calibration_condensed(args.output, matrix, distortion)
     if args.debug:
         path_to_estimation_distortion = args.output / "7_estimation_distortion"
         path_to_estimation_distortion.mkdir(parents=False, exist_ok=True)
@@ -479,7 +480,19 @@ def write_output(
                 print(e)
 
 
-def write_calibration(list_input, output, mtx, dist, fisheye):
+def write_calibration_condensed(output, mtx, dist):
+    """
+    Write calibration matrix and distortion coefficients to file
+    """
+    d = datetime.datetime.today()
+    output_path = output / ("calibration_" + d.strftime("%Y-%m-%d_%H-%M-%S") + ".yaml")
+    s = cv2.FileStorage(output_path, cv2.FileStorage_WRITE)
+    s.write('internal_camera_matrix', mtx)
+    s.write('distortion_coefficients', dist)
+    s.release()
+
+
+def write_calibration_details(list_input, output, mtx, dist, fisheye):
     """
     Write calibration matrix and distortion coefficients to file
     """
