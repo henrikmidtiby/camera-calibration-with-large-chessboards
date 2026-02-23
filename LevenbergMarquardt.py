@@ -41,7 +41,7 @@ class LevenbergMarquardt:
         j = j[:, self.parameters_to_optimize]
         return (projected_points, j)
 
-    def iterate(self) -> None:
+    def iterate(self):
         # Get projection errors and the associated jacobian
         self.projection_errors, j = self.jacobian(self.param, self.func)
 
@@ -68,7 +68,7 @@ class LevenbergMarquardt:
             self.damping = self.damping / 3
             self.residual_error = updated_residual_error
 
-        return
+        return self.residual_error
 
     def estimate_uncertainties(self, p=0.6827):
         self.squared_residual_error = self.residual_error**2

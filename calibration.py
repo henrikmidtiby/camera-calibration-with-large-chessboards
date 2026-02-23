@@ -1,13 +1,13 @@
 import argparse
 import datetime
 import math
+from collections import deque
 from pathlib import Path
 
 import cv2
 import exifread
 import numpy as np
 from icecream import ic
-from scipy.optimize import least_squares
 
 from camera_models import CameraModel, FishEyeCameraModel
 from corner_detector import ChessBoardCornerDetector
@@ -90,6 +90,13 @@ def main():
         default=0.1,
         help="Threshold for acceptable deviation between espected location and actual location of points when assigning real world coordinates (default 0.1)",
     )
+    parser.add_argument(
+        "--max_iter",
+        metavar="",
+        type=int,
+        default=200,
+        help="Max number of iterations in 'Levenberg Marquardts algorithm' (default 200)",
+    )
 
     args = parser.parse_args()
     objpoints, imgpoints, all_imgpoints = (
@@ -135,7 +142,7 @@ def main():
     img = cv2.imread(str(list_input[0]))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     matrix, distortion = calibrate_camera(
-        gray.shape[::-1], objpoints, imgpoints, args.fisheye
+        gray.shape[::-1], objpoints, imgpoints, args.fisheye, args.max_iter
     )
     # undistort images
     path_to_undistorted_images = args.output / "6_undistorted_images"
@@ -177,7 +184,9 @@ def main():
         )
 
 
-def calibrate_camera(image_size, objpoints_list, imgpoints_list, fisheye=False):
+def calibrate_camera(
+    image_size, objpoints_list, imgpoints_list, fisheye=False, max_iter=200
+):
     if fisheye:
         camera_model = FishEyeCameraModel()
     else:
@@ -213,14 +222,25 @@ def calibrate_camera(image_size, objpoints_list, imgpoints_list, fisheye=False):
     initial_pose = get_initial_pose(
         image_size, objpoints_list, imgpoints_list, camera_model, fisheye=fisheye
     )
-    ic(initial_pose)
-    # ic(initial_pose)
-    # res = least_squares(projection_error_function, initial_pose)
-    # ic(camera_model.K, camera_model.dist)
-    # ic(res.jac)
     lm = LevenbergMarquardt(projection_error_function, initial_pose)
-    for k in range(100):
-        lm.iterate()
+    iter = 0
+    res_errors_deque = deque([np.inf] * 10)
+    res_errors = np.array(res_errors_deque)
+    while iter < max_iter:
+        new_res_error = lm.iterate()
+        diff_res_error = abs(res_errors - new_res_error)
+        if np.all(diff_res_error < 1e-8):
+            break
+        res_errors_deque.popleft()
+        res_errors_deque.append(new_res_error)
+        res_errors = np.array(res_errors_deque)
+        iter = iter + 1
+    if iter == max_iter:
+        print(
+            f"LM: Max Iterations reached ({max_iter}). Stopped before error plateaued!"
+        )
+    else:
+        print(f"LM: Stopped after {iter} iterations.")
     return camera_model.K, camera_model.dist
 
 
