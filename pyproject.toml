@@ -1,0 +1,11 @@
+[project]
+name = "camera-calibration-with-large-chessboards"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "opencv_python",
+    "scikit-learn",
+    "exifread",
+    "icecream",
+]
