@@ -1,12 +1,17 @@
-import numpy as np
-import cv2
 import argparse
-from pathlib import Path
-from corner_detector import ChessBoardCornerDetector
-import math
 import datetime
+import math
+from pathlib import Path
+
+import cv2
 import exifread
+import numpy as np
 from icecream import ic
+from scipy.optimize import least_squares
+
+from camera_models import CameraModel, FishEyeCameraModel
+from corner_detector import ChessBoardCornerDetector
+from LevenbergMarquardt import LevenbergMarquardt
 
 
 def main():
@@ -172,6 +177,106 @@ def main():
         )
 
 
+def calibrate_camera(image_size, objpoints_list, imgpoints_list, fisheye=False):
+    if fisheye:
+        camera_model = FishEyeCameraModel()
+    else:
+        camera_model = CameraModel()
+
+    def K_from_camera_params(fx: float, fy: float, cx: float, cy: float) -> np.ndarray:
+        return np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+
+    def projection_error_function(pose: np.ndarray) -> np.ndarray:
+        # update camera model
+        camera_model.K = K_from_camera_params(*pose[0:4])
+        if fisheye:
+            camera_model.dist = np.expand_dims(pose[4:8], 1)
+        else:
+            camera_model.dist = np.expand_dims(pose[4:9], 0)
+        # calc errors
+        error_list = []
+        for idx, points in enumerate(zip(objpoints_list, imgpoints_list, strict=False)):
+            if fisheye:
+                pose_idx = 8 + idx * 6
+            else:
+                pose_idx = 9 + idx * 6
+            obj_points, image_points = points
+            projection = camera_model.fProject(
+                pose[pose_idx : pose_idx + 6], obj_points
+            )
+            observations = image_points.reshape((1, -1))
+            errors = observations - projection
+            error_list.append(errors)
+        total_errors = np.hstack(error_list)
+        return total_errors
+
+    initial_pose = get_initial_pose(
+        image_size, objpoints_list, imgpoints_list, camera_model, fisheye=fisheye
+    )
+    ic(initial_pose)
+    # ic(initial_pose)
+    # res = least_squares(projection_error_function, initial_pose)
+    # ic(camera_model.K, camera_model.dist)
+    # ic(res.jac)
+    lm = LevenbergMarquardt(projection_error_function, initial_pose)
+    for k in range(100):
+        lm.iterate()
+    return camera_model.K, camera_model.dist
+
+
+def get_initial_pose(
+    image_size, objpoints_list, imgpoints_list, camera_model, fisheye=False
+) -> np.ndarray:
+    initial_K = cv2.initCameraMatrix2D(objpoints_list, imgpoints_list, image_size)
+    if fisheye:
+        pose = np.array(
+            [
+                initial_K[0, 0],
+                initial_K[1, 1],
+                initial_K[0, 2],
+                initial_K[1, 2],
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        )
+    else:
+        pose = np.array(
+            [
+                initial_K[0, 0],
+                initial_K[1, 1],
+                initial_K[0, 2],
+                initial_K[1, 2],
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        )
+    camera_model.K = initial_K
+    if fisheye:
+        camera_model.dist = pose[4:8]
+    else:
+        camera_model.dist = pose[4:9]
+    for obj_points, image_points in zip(objpoints_list, imgpoints_list, strict=False):
+        if fisheye:
+            image_points = np.expand_dims(image_points, 0)
+            retval, rvec, tvec = cv2.fisheye.solvePnP(
+                obj_points, image_points, camera_model.K, camera_model.dist
+            )
+        else:
+            retval, rvec, tvec = cv2.solvePnP(
+                obj_points, image_points, camera_model.K, camera_model.dist
+            )
+        if not retval:
+            raise ValueError("Calibration failed to initialize extrinsic parameters!")
+        pose = np.append(pose, rvec[:, 0])
+        pose = np.append(pose, tvec[:, 0])
+    return pose
+
+
 def show_estimation_distortion(
     list_input, imgpoints, matrix, distortion, fisheye, output, scaling_debug
 ):
@@ -301,7 +406,7 @@ def detect_calibration_pattern_in_image(
     )
 
 
-def calibrate_camera(image_size, objpoints, imgpoints, fisheye=False):
+def calibrate_camera_2(image_size, objpoints, imgpoints, fisheye=False):
     """
     Calibrate camera with the provided object points and image points
     The image is necessary to get the shape of the image to initialize the intrinsic camera matrix
@@ -487,8 +592,8 @@ def write_calibration_condensed(output, mtx, dist):
     d = datetime.datetime.today()
     output_path = output / ("calibration_" + d.strftime("%Y-%m-%d_%H-%M-%S") + ".yaml")
     s = cv2.FileStorage(output_path, cv2.FileStorage_WRITE)
-    s.write('internal_camera_matrix', mtx)
-    s.write('distortion_coefficients', dist)
+    s.write("internal_camera_matrix", mtx)
+    s.write("distortion_coefficients", dist)
     s.release()
 
 
