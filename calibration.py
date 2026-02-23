@@ -141,7 +141,7 @@ def main():
     # calibrate camera
     img = cv2.imread(str(list_input[0]))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    matrix, distortion = calibrate_camera(
+    matrix, distortion, uncertainties = calibrate_camera(
         gray.shape[::-1], objpoints, imgpoints, args.fisheye, args.max_iter
     )
     # undistort images
@@ -156,7 +156,7 @@ def main():
         args.debug,
     )
     # print output to screen and file
-    print_output(matrix, distortion, args.fisheye)
+    print_output(matrix, distortion, uncertainties, args.fisheye)
     write_output(
         list_input,
         args.output,
@@ -241,7 +241,12 @@ def calibrate_camera(
         )
     else:
         print(f"LM: Stopped after {iter} iterations.")
-    return camera_model.K, camera_model.dist
+    lm.estimate_uncertainties()
+    if fisheye:
+        uncertainties = lm.combined_uncertainties_vector[:8]
+    else:
+        uncertainties = lm.combined_uncertainties_vector[:9]
+    return camera_model.K, camera_model.dist, uncertainties
 
 
 def get_initial_pose(
@@ -458,17 +463,32 @@ def calibrate_camera_2(image_size, objpoints, imgpoints, fisheye=False):
     return mtx, dist
 
 
-def print_output(mtx, dist, fisheye):
+def print_output(mtx, dist, uncertainties, fisheye):
     """
     Write calibration matrix and distortion coefficients to screen
     """
     print("Calibration matrix: ")
     print(mtx)
+    print("Calibration matrix uncertainties:")
+    print(
+        np.array(
+            [
+                [uncertainties[0], 0, uncertainties[2]],
+                [0, uncertainties[1], uncertainties[3]],
+                [0, 0, 1],
+            ]
+        )
+    )
     if fisheye:
         print("Distortion parameters (k1, k2, k3, k4):")
+        print(dist.squeeze())
+        print("Distortion parameters (k1, k2, k3, k4) uncertainties:")
+        print(uncertainties[4:])
     else:
         print("Distortion parameters (k1, k2, p1, p2, k3):")
-    print(dist)
+        print(dist.squeeze())
+        print("Distortion parameters (k1, k2, p1, p2, k3) uncertainties:")
+        print(uncertainties[4:])
 
 
 def write_output(
