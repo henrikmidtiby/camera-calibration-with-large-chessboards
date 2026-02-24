@@ -131,7 +131,7 @@ def main():
                 print(
                     "ERROR: Less than "
                     + str(args.min_coverage)
-                    + "% is covered with points, excluding from calibration"
+                    + f"% is covered with points, excluding {file_path} from calibration"
                 )
             else:
                 objpoints.append(objp)
@@ -162,14 +162,17 @@ def main():
         args.output,
         matrix,
         distortion,
+        uncertainties,
         coverage_images,
         stats_before,
         stats_after,
         args.min_coverage,
         args.fisheye,
     )
-    write_calibration_details(list_input, args.output, matrix, distortion, args.fisheye)
-    write_calibration_condensed(args.output, matrix, distortion)
+    write_calibration_details(
+        list_input, args.output, matrix, distortion, uncertainties, args.fisheye
+    )
+    write_calibration_condensed(args.output, matrix, distortion, uncertainties)
     if args.debug:
         path_to_estimation_distortion = args.output / "7_estimation_distortion"
         path_to_estimation_distortion.mkdir(parents=False, exist_ok=True)
@@ -496,6 +499,7 @@ def write_output(
     output,
     mtx,
     dist,
+    uncertainties,
     coverage_images,
     stats_before,
     stats_after,
@@ -516,11 +520,26 @@ def write_output(
         f.write("Calibration matrix: \n")
         for line in mtx:
             f.write(str(line) + "\n")
+        f.write("\nCalibration matrix uncertainties: \n")
+        mtx_uncert = np.array(
+            [
+                [uncertainties[0], 0, uncertainties[2]],
+                [0, uncertainties[1], uncertainties[3]],
+                [0, 0, 1],
+            ]
+        )
+        for line in mtx_uncert:
+            f.write(str(line) + "\n")
         if fisheye:
             f.write("\nDistortion parameters (k1, k2, k3, k4):\n")
+            f.write(str(dist))
+            f.write("\nDistortion parameters (k1, k2, k3, k4) uncertainties:\n")
+            f.write(str(uncertainties[4:]))
         else:
             f.write("\nDistortion parameters (k1, k2, p1, p2, k3):\n")
-        f.write(str(dist))
+            f.write(str(dist))
+            f.write("\nDistortion parameters (k1, k2, p1, p2, k3) uncertainties:\n")
+            f.write(str(uncertainties[4:]))
         f.write("\n\nSummary statistics:\n")
         hor_before, ver_before, hor_after, ver_after = 0.0, 0.0, 0.0, 0.0
         good_images = 0
@@ -625,7 +644,7 @@ def write_output(
                 print(e)
 
 
-def write_calibration_condensed(output, mtx, dist):
+def write_calibration_condensed(output, mtx, dist, uncertainties):
     """
     Write calibration matrix and distortion coefficients to file
     """
@@ -634,10 +653,11 @@ def write_calibration_condensed(output, mtx, dist):
     s = cv2.FileStorage(output_path, cv2.FileStorage_WRITE)
     s.write("internal_camera_matrix", mtx)
     s.write("distortion_coefficients", dist)
+    s.write("uncertainties", uncertainties)
     s.release()
 
 
-def write_calibration_details(list_input, output, mtx, dist, fisheye):
+def write_calibration_details(list_input, output, mtx, dist, uncertainties, fisheye):
     """
     Write calibration matrix and distortion coefficients to file
     """
@@ -655,6 +675,16 @@ def write_calibration_details(list_input, output, mtx, dist, fisheye):
             + " "
             + str(mtx[1, 2])
         )
+        f.write("\n\nMatrix parameters (fx, fy, cx, cy) uncertainties:\n")
+        f.write(
+            str(uncertainties[0])
+            + " "
+            + str(uncertainties[1])
+            + " "
+            + str(uncertainties[2])
+            + " "
+            + str(uncertainties[3])
+        )
         if fisheye:
             f.write("\n\nDistortion parameters (k1 k2 k3 k4):\n")
             f.write(
@@ -665,6 +695,16 @@ def write_calibration_details(list_input, output, mtx, dist, fisheye):
                 + str(dist[2][0])
                 + " "
                 + str(dist[3][0])
+            )
+            f.write("\n\nDistortion parameters (k1 k2 k3 k4) uncertainties:\n")
+            f.write(
+                str(uncertainties[4])
+                + " "
+                + str(uncertainties[5])
+                + " "
+                + str(uncertainties[6])
+                + " "
+                + str(uncertainties[7])
             )
         else:
             f.write("\n\nDistortion parameters (k1 k2 p1 p2 k3):\n")
@@ -678,6 +718,16 @@ def write_calibration_details(list_input, output, mtx, dist, fisheye):
                 + str(dist[0][3])
                 + " "
                 + str(dist[0][4])
+            )
+            f.write("\n\nDistortion parameters (k1 k2 p1 p2 k3) uncertainties:\n")
+            f.write(
+                str(uncertainties[4])
+                + " "
+                + str(uncertainties[5])
+                + " "
+                + str(uncertainties[6])
+                + " "
+                + str(uncertainties[7])
             )
         f.write("\n\n-----info-----may be edited-----\n")
         image_info = open(str(list_input[0]), "rb")
