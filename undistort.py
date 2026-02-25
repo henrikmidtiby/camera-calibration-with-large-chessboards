@@ -1,8 +1,9 @@
-import numpy as np
-import cv2
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import cv2
+import numpy as np
 
 
 def main():
@@ -51,8 +52,13 @@ def undistort_images(list_input, output, calibration_file):
     file = f.readlines()
     # fx fy cx cy
     m = file[2].split()
-    # k1 k2 k3 k4   or   k1 k2 p1 p2 k3
-    d = file[5].split()
+    # if new file with uncertainties distortion is on line 9
+    if "uncertainties" in file[4]:
+        # k1 k2 k3 k4   or   k1 k2 p1 p2 k3
+        d = file[8].split()
+    else:
+        # k1 k2 k3 k4   or   k1 k2 p1 p2 k3
+        d = file[5].split()
     f.close()
 
     matrix = np.array([[m[0], 0, m[2]], [0, m[1], m[3]], [0, 0, 1]]).astype(float)
