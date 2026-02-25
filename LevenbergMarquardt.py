@@ -71,7 +71,7 @@ class LevenbergMarquardt:
         return self.residual_error
 
     def estimate_uncertainties(self, p=0.6827):
-        self.squared_residual_error = self.residual_error**2
+        self.squared_residual_error = np.linalg.norm(self.func(self.param)) ** 2
         number_of_observations = self.projection_errors.size
         number_of_parameters = self.parameters_to_optimize.size
         # https://www.youtube.com/watch?v=3IgIToOV2Wk at 4:39
