@@ -8,6 +8,7 @@ import cv2
 import exifread
 import numpy as np
 from icecream import ic
+from tqdm import tqdm
 
 from camera_models import CameraModel, FishEyeCameraModel
 from corner_detector import ChessBoardCornerDetector
@@ -113,7 +114,7 @@ def main():
         print("ERROR: No files found at the provided input location, program stopped")
         exit()
     # detect corners in every image
-    for file_path in list_input:
+    for file_path in tqdm(list_input, desc="Finding Checkerboard", unit="images"):
         try:
             (objp, imgp, coverage, statistics) = detect_calibration_pattern_in_image(
                 file_path,
@@ -229,15 +230,18 @@ def calibrate_camera(
     iter = 0
     res_errors_deque = deque([np.inf] * 10)
     res_errors = np.array(res_errors_deque)
-    while iter < max_iter:
-        new_res_error = lm.iterate()
-        diff_res_error = abs(res_errors - new_res_error)
-        if np.all(diff_res_error < 1e-8):
-            break
-        res_errors_deque.popleft()
-        res_errors_deque.append(new_res_error)
-        res_errors = np.array(res_errors_deque)
-        iter = iter + 1
+    with tqdm(desc="Calibration") as pbar:
+        while iter < max_iter:
+            new_res_error = lm.iterate()
+            diff_res_error = abs(res_errors - new_res_error)
+            if np.all(diff_res_error < 1e-8):
+                break
+            res_errors_deque.popleft()
+            res_errors_deque.append(new_res_error)
+            res_errors = np.array(res_errors_deque)
+            iter = iter + 1
+            pbar.update()
+            pbar.set_postfix(error=new_res_error)
     if iter == max_iter:
         print(
             f"LM: Max Iterations reached ({max_iter}). Stopped before error plateaued!"
